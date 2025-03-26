@@ -1,0 +1,8 @@
+pytorch==2.1.1
+numpy==1.26.4
+drjit==0.4.6
+tqdm
+trimesh
+mesh2sdf
+pysdf
+mesh-to-sdf

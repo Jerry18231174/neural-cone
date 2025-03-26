@@ -1,0 +1,53 @@
+{
+    "train": {
+        "epochs": 20000,
+        "save_every": 500,
+        "learning_rate": 0.001
+    },
+    "render": {
+    },
+    "model": {
+        "name": "NCT",
+        "cone_threshold": 0.1,
+        "max_march_steps": 10,
+        "min_march_distance": 0.1,
+        "ray": {
+            "name": "HashGrid",
+            "n_levels": 4,
+            "n_features_per_level": 8,
+            "log2_hashmap_size": 19,
+            "base_resolution": 32,
+            "per_level_scale": 2.0,
+            "interpolation": "Linear",
+            "level_reduce": "Concat",
+            "n_hidden_dims": 256,
+            "n_hidden_layers": 4
+        },
+        "cone": {
+            "name": "HashGrid",
+            "n_levels": 8,
+            "n_features_per_level": 8,
+            "log2_hashmap_size": 19,
+            "base_resolution": 32,
+            "per_level_scale": 1.414,
+            "interpolation": "Linear",
+            "level_reduce": "Interp",
+            "n_hidden_dims": 256,
+            "n_hidden_layers": 4
+        },
+        "sdf": {
+            "name": "Grid",
+            "method": "mesh2sdf",
+            "resolution": 256,
+            "interpolation": "Linear"
+        }
+    },
+    "sample": {
+        "n_points": 32768,
+        "n_dirs_per_point": 32,
+        "l_unscented": 2,
+        "sdf": {
+            "batch_size": 262144
+        }
+    }
+}

@@ -1,0 +1,166 @@
+# Basics
+import os
+import json
+import argparse
+import imgui
+
+# Computational
+import numpy as np
+import torch
+
+# Custom
+from src.model.sdf import NGPSDF, GridSDF
+from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity
+from src.integrator.neural import RadiosityIntegrator
+from src.integrator.path import *
+from src.integrator.g_buffer import *
+from src.viewer.camera import FPSCamera
+from src.viewer.ui import UI
+
+# Mitsuba
+import drjit as dr
+import mitsuba as mi
+mi.set_variant("cuda_rgb")
+
+
+def render(config: dict, args: argparse.Namespace):
+    """
+    Render scene
+    """
+    # Load scene
+    scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
+    params = mi.traverse(scene)
+    bbox = scene.bbox()
+    bbox = torch.tensor([bbox.min - 1e-2, bbox.max + 1e-2], dtype=torch.float32, device="cuda")
+
+    # Load SDF
+    mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
+    sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
+    sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
+    sdf_model.compute(sdf_cache_path)
+
+    # Load model
+    # model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
+    model = NeuralConeRadiosity(config["model"], bbox, sdf_model).to("cuda")
+    model.load_state_dict(torch.load(os.path.join(
+        "out", args.scene, "checkpoints", args.model_ckpt + "_model.pth"
+    )))
+    model.eval()
+
+    # Initialize integrator
+    nr_integrator = RadiosityIntegrator(
+        model=model,
+        render_mode="LHS",
+    )
+    path_integrator = mi.load_dict({
+        "type": "pt",
+        "max_depth": 16,
+    })
+    depth_integrator = mi.load_dict({
+        "type": "depth"
+    })
+    albedo_integrator = mi.load_dict({
+        "type": "albedo"
+    })
+
+    width, height = params['PerspectiveCamera.film.size'].numpy()
+    x_fov = params['PerspectiveCamera.x_fov'].numpy()[0]
+    extrinsic = params['PerspectiveCamera.to_world'].matrix.numpy()[0]
+    camera = FPSCamera({
+        "width": width,
+        "height": height,
+        "x_fov": x_fov,
+    }, extrinsic, 0.2)
+    ui = UI(width, height, camera)
+
+    int_type = 0
+    slider_spp = 1
+    spp = 1
+    use_antialiasing = False
+    exposure = 1.0
+    save_img = False
+
+    while not ui.should_close():
+        ui.begin_frame()
+        
+        params['PerspectiveCamera.to_world'] = mi.Matrix4f(camera.get_transform()[None, ...])
+        params['PerspectiveCamera.x_fov'] = mi.Float32(camera.get_x_fov()[None, ...])
+        params.update()
+
+        if imgui.tree_node("Render Options", imgui.TREE_NODE_DEFAULT_OPEN):
+
+            _, int_type = imgui.combo("Integrator", int_type, [
+                                    "Path", "LHS", "RHS", "Depth", "Albedo"])
+            _, slider_spp = imgui.slider_int("SPP", slider_spp, 1, 16)
+
+            if int_type == 0:
+                integrator = path_integrator
+                spp = slider_spp
+            elif int_type == 1:
+                integrator = nr_integrator
+                nr_integrator.render_mode = "LHS"
+                spp = 1
+            elif int_type == 2:
+                integrator = nr_integrator
+                nr_integrator.render_mode = "RHS"
+                nr_integrator.spp = slider_spp
+                spp = 1
+            elif int_type == 3:
+                integrator = depth_integrator
+                if use_antialiasing:
+                    depth_integrator.ray_type = "secondary"
+                else:
+                    depth_integrator.ray_type = "primary"
+                spp = slider_spp
+            elif int_type == 4:
+                integrator = albedo_integrator
+                spp = slider_spp
+
+            _, use_antialiasing = imgui.checkbox(
+                "Anti-aliasing", use_antialiasing)
+            _, exposure = imgui.slider_float("Exposure", exposure, 0.1, 5)
+            _, save_img = imgui.checkbox("Save image", save_img)
+
+            imgui.tree_pop()
+
+        seed = int(ui.duration * 1000)
+        img = mi.render(scene, integrator=integrator, seed=seed, spp=spp).torch()
+        if save_img:
+            dr.sync_device()
+            torch.cuda.synchronize()
+            mi.util.write_bitmap(args.output, img)
+            print("Image saved to", args.output)
+            save_img = False
+        ui.end_frame()
+        exposure = 1
+        img = torch.log1p(torch.abs(exposure * img))  # tone mapping
+        img = img ** (1 / 2.2)  # gamma correction
+        # dr.sync_device()
+        # torch.cuda.synchronize()
+        # dr.flush_malloc_cache()
+        # torch.cuda.empty_cache()
+        # ui.write_texture_cpu(img.cpu().numpy())
+        ui.write_texture_gpu(img)
+    ui.close()
+
+
+def parse_args():
+    """
+    Parse command line arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", type=str, default="grid")
+    parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
+    parser.add_argument("-m", "--model_ckpt", type=str, default="20000")
+    parser.add_argument("-o", "--output", type=str, default="test.exr")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    
+    # Load config file
+    with open(os.path.join("configs", args.config + ".json"), "r") as f:
+        config = json.load(f)
+    
+    render(config, args)
