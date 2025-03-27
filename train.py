@@ -119,7 +119,7 @@ def train(config: dict, args: argparse.Namespace):
         lhs_rhs.sample(seed=step)
 
         # Forward pass
-        result = model.query_lhs_rhs(lhs_rhs)
+        result = model(lhs_rhs)
         lhs_color = result["lhs"]
         rhs_color = result["rhs"].detach()
 

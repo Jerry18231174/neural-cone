@@ -55,7 +55,10 @@ class NeuralRadiosity(nn.Module):
             output_activation=nn.Identity()
         )
 
-    def forward(self, si: mi.SurfaceInteraction3f) -> torch.Tensor:
+    def query_model(self, si: mi.SurfaceInteraction3f) -> torch.Tensor:
+        """
+        Query the model with surface interaction
+        """
 
         pos, normal, dir, albedo, roughness, active_side = extract_input(si)
 
@@ -70,15 +73,15 @@ class NeuralRadiosity(nn.Module):
 
         return color
     
-    def query_lhs_rhs(self, lhs_rhs: LHSRHS) -> torch.Tensor:
+    def forward(self, lhs_rhs: LHSRHS) -> torch.Tensor:
         """
         Query the model with lhs and rhs interactions
         """
         si_lhs = lhs_rhs.si_lhs
         si_rhs = lhs_rhs.si_bsdf
 
-        lhs_color = self(si_lhs)
-        rhs_color = self(si_rhs)
+        lhs_color = self.query_model(si_lhs)
+        rhs_color = self.query_model(si_rhs)
 
         # Render rhs color
         rhs_color = rhs_color.reshape(-1, lhs_rhs.dirs_per_point, 3)
@@ -91,7 +94,7 @@ class NeuralRadiosity(nn.Module):
     
     def render_lhs(self, si_lhs: mi.SurfaceInteraction3f):
         with torch.no_grad():
-            lhs_color = self(si_lhs)
+            lhs_color = self.query_model(si_lhs)
         
         return lhs_color
     
@@ -107,7 +110,7 @@ class NeuralRadiosity(nn.Module):
             lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
             si_rhs = lhs_rhs.si_bsdf
 
-            rhs_color = self(si_rhs)
+            rhs_color = self.query_model(si_rhs)
 
             # Render rhs color
             rhs_color = rhs_color.reshape(-1, spp, 3)
@@ -151,13 +154,16 @@ class NeuralConeRadiosity(NeuralRadiosity):
         
         self.sdf_model = sdf_model
 
-    def forward(
+    def query_model(
         self,
         si: mi.SurfaceInteraction3f,
         scene: mi.Scene,
     ) -> torch.Tensor:
+        """
+        Query the model with surface interaction
+        """
 
-        nr_color = super().forward(si)
+        nr_color = super().query_model(si)
 
         pos, normal, dir, albedo, roughness, active_side = extract_input(si)
 
@@ -197,11 +203,11 @@ class NeuralConeRadiosity(NeuralRadiosity):
             march_color = torch.abs(self.cone_mlp(pfilt_enc))
 
             # Update color
-            opacity = ((radius - sdf.abs()) / radius / 2)[active]
+            opacity = ((radius - sdf.abs()) / radius)[active]
             cone_color[active] += transmittance[active] * opacity * march_color
             
             # Update t & transmittance
-            transmittance[active] *= 1 - opacity
+            transmittance[active] *= 1 - torch.clamp(opacity, 0, 1)
             t[active_t] = t[active_t] + sdf[active_t]
         
         # Query model at glossy interactions
@@ -223,15 +229,15 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         return color
     
-    def query_lhs_rhs(self, lhs_rhs: LHSRHS) -> torch.Tensor:
+    def forward(self, lhs_rhs: LHSRHS) -> torch.Tensor:
         """
         Query the model with lhs and rhs interactions
         """
         si_lhs = lhs_rhs.si_lhs
         si_rhs = lhs_rhs.si_bsdf
 
-        lhs_color = self(si_lhs, lhs_rhs.scene)
-        rhs_color = self(si_rhs, lhs_rhs.scene)
+        lhs_color = self.query_model(si_lhs, lhs_rhs.scene)
+        rhs_color = self.query_model(si_rhs, lhs_rhs.scene)
 
         # Render rhs color
         rhs_color = rhs_color.reshape(-1, lhs_rhs.dirs_per_point, 3)
@@ -244,7 +250,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
     
     def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene):
         with torch.no_grad():
-            lhs_color = self(si_lhs, scene)
+            lhs_color = self.query_model(si_lhs, scene)
         
         return lhs_color
     
@@ -260,7 +266,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
             lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
             si_rhs = lhs_rhs.si_bsdf
 
-            rhs_color = self(si_rhs, scene)
+            rhs_color = self.query_model(si_rhs, scene)
 
             # Render rhs color
             rhs_color = rhs_color.reshape(-1, spp, 3)
