@@ -33,17 +33,20 @@ def render(config: dict, args: argparse.Namespace):
     bbox = scene.bbox()
     bbox = torch.tensor([bbox.min - 1e-2, bbox.max + 1e-2], dtype=torch.float32, device="cuda")
 
-    # Load SDF
-    mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
-    sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
-    sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
-    sdf_model.compute(sdf_cache_path)
-
     # Load model
-    # model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
-    model = NeuralConeRadiosity(config["model"], bbox, sdf_model).to("cuda")
+    if config["model"]["name"] == "NR":
+        model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
+    elif config["model"]["name"] == "NCR":
+        # Load SDF
+        mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
+        sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
+        sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
+        sdf_model.compute(sdf_cache_path)
+
+        model = NeuralConeRadiosity(config["model"], bbox, sdf_model).to("cuda")
+    
     model.load_state_dict(torch.load(os.path.join(
-        "out", args.scene, "checkpoints", args.model_ckpt + "_model.pth"
+        "out", args.scene, "checkpoints", args.model_ckpt + "_" + config["model"]["name"] + ".pth"
     )))
     model.eval()
 
@@ -149,7 +152,7 @@ def parse_args():
     Parse command line arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", type=str, default="grid")
+    parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
     parser.add_argument("-m", "--model_ckpt", type=str, default="20000")
     parser.add_argument("-o", "--output", type=str, default="test.exr")

@@ -76,12 +76,6 @@ def train(config: dict, args: argparse.Namespace):
     """
     Train model
     """
-    mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
-
-    # Load SDF
-    sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
-    sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
-    sdf_model.compute(sdf_cache_path)
 
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
@@ -89,8 +83,17 @@ def train(config: dict, args: argparse.Namespace):
     bbox = torch.tensor([bbox.min - 1e-2, bbox.max + 1e-2], dtype=torch.float32, device="cuda")
 
     # Load model
-    # model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
-    model = NeuralConeRadiosity(config["model"], bbox, sdf_model).to("cuda")
+    if config["model"]["name"] == "NR":
+        model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
+    elif config["model"]["name"] == "NCR":
+        # Load SDF
+        mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
+        sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
+        sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
+        sdf_model.compute(sdf_cache_path)
+
+        model = NeuralConeRadiosity(config["model"], bbox, sdf_model).to("cuda")
+    
     model.train()
 
     # Load optimizer
@@ -104,7 +107,7 @@ def train(config: dict, args: argparse.Namespace):
     elif args.model_ckpt is not None:
         ckpt_steps = int(args.model_ckpt)
         model.load_state_dict(torch.load(os.path.join(
-            "out", args.scene, "checkpoints", args.model_ckpt + "_model.pth"
+            "out", args.scene, "checkpoints", args.model_ckpt + "_" + config["model"]["name"] + ".pth"
         )))
     
     # Train
@@ -139,7 +142,7 @@ def train(config: dict, args: argparse.Namespace):
 
         if (step + 1) % config["train"]["save_every"] == 0:
             torch.save(model.state_dict(), os.path.join(
-                "out", args.scene, "checkpoints", f"{step + ckpt_steps + 1}_model.pth"
+                "out", args.scene, "checkpoints", f"{step + ckpt_steps + 1}" + "_" + config["model"]["name"] + ".pth"
             ))
         if (step + 1) % 100 == 0:
             print("lhs color", lhs_color[:3])
@@ -151,7 +154,7 @@ def parse_args():
     Parse command line arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", type=str, default="grid")
+    parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
     parser.add_argument("-m", "--model_ckpt", type=str, default=None)
     parser.add_argument("-v", "--viewer", type=bool, default=False)

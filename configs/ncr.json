@@ -7,9 +7,9 @@
     "render": {
     },
     "model": {
-        "name": "NCT",
+        "name": "NCR",
         "cone_threshold": 0.1,
-        "max_march_steps": 10,
+        "max_march_steps": 32,
         "min_march_distance": 0.1,
         "ray": {
             "name": "HashGrid",

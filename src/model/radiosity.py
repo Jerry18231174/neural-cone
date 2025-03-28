@@ -92,7 +92,7 @@ class NeuralRadiosity(nn.Module):
             "rhs": rhs_color
         }
     
-    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f):
+    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene):
         with torch.no_grad():
             lhs_color = self.query_model(si_lhs)
         
