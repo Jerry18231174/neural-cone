@@ -57,7 +57,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    img = np.array(mi.Bitmap(args.img)) * 1.32
+    img = np.array(mi.Bitmap(args.img))
     ref = np.array(mi.Bitmap(args.ref))
     
     value = compute_metric(img, ref, args.metric)

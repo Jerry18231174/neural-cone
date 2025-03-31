@@ -1,0 +1,12 @@
+{
+    "name": "vanilla",
+    "fps": 30,
+    "duration": 4,
+    "spp": 16,
+    "cameras": [
+        "./out/camera0.npz",
+        "./out/camera1.npz",
+        "./out/camera2.npz"
+    ],
+    "render_mode": "LHS"
+}

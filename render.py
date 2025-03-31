@@ -23,9 +23,9 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 
-def render(config: dict, args: argparse.Namespace):
+def load_render_vars(config: dict, args: argparse.Namespace):
     """
-    Render scene
+    Load render variables
     """
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
@@ -74,14 +74,45 @@ def render(config: dict, args: argparse.Namespace):
         "height": height,
         "x_fov": x_fov,
     }, extrinsic, 0.2)
+
+    return {
+        "scene": scene,
+        "integrators": {
+            args.config: nr_integrator,
+            "path": path_integrator,
+            "depth": depth_integrator,
+            "albedo": albedo_integrator,
+        },
+        "camera": camera,
+    }
+
+def render(config: dict, args: argparse.Namespace):
+    """
+    Render scene
+    """
+    # Load render variables
+    render_vars = load_render_vars(config, args)
+    scene: mi.Scene = render_vars["scene"]
+    params = mi.traverse(scene)
+    nr_integrator = render_vars["integrators"][args.config]
+    path_integrator = render_vars["integrators"]["path"]
+    depth_integrator = render_vars["integrators"]["depth"]
+    albedo_integrator = render_vars["integrators"]["albedo"]
+    camera: FPSCamera = render_vars["camera"]
+    width, height = camera.width, camera.height
+
+    # Initialize UI
     ui = UI(width, height, camera)
 
+    # UI variables
     int_type = 0
     slider_spp = 1
     spp = 1
     use_antialiasing = False
     exposure = 1.0
     save_img = False
+    save_camera = False
+    load_camera = False
 
     while not ui.should_close():
         ui.begin_frame()
@@ -125,6 +156,33 @@ def render(config: dict, args: argparse.Namespace):
             _, save_img = imgui.checkbox("Save image", save_img)
 
             imgui.tree_pop()
+        
+        if imgui.tree_node("Camera", imgui.TREE_NODE_DEFAULT_OPEN):
+            _, save_camera = imgui.checkbox("Save camera config", save_camera)
+            if save_camera:
+                x_fov = camera.get_x_fov()
+                extrinsics = camera.get_transform()
+                intrinsics = {
+                    "width": width,
+                    "height": height,
+                    "x_fov": x_fov,
+                }
+                print(extrinsics)
+                np.savez("./out/camera.npz", extrinsics=extrinsics, intrinsics=intrinsics)
+                print("Camera config saved to camera.npz")
+                save_camera = False
+
+            _, load_camera = imgui.checkbox("Load camera config", load_camera)
+            if load_camera:
+                with np.load("./out/camera.npz", allow_pickle=True) as data:
+                    extrinsics = data["extrinsics"]
+                    x_fov = data["intrinsics"].item()["x_fov"]
+                    camera.set_transform(extrinsics)
+                    camera.set_x_fov(x_fov)
+                print("Camera config loaded from camera.npz")
+                load_camera = False
+                
+            imgui.tree_pop()
 
         seed = int(ui.duration * 1000)
         img = mi.render(scene, integrator=integrator, seed=seed, spp=spp).torch()
@@ -155,7 +213,7 @@ def parse_args():
     parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
     parser.add_argument("-m", "--model_ckpt", type=str, default="20000")
-    parser.add_argument("-o", "--output", type=str, default="test.exr")
+    parser.add_argument("-o", "--output", type=str, default="./out/test.exr")
     return parser.parse_args()
 
 

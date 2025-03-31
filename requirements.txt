@@ -6,3 +6,5 @@ trimesh
 mesh2sdf
 pysdf
 mesh-to-sdf
+opencv-python
+ffmpeg-python

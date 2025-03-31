@@ -52,7 +52,7 @@
 		<rgb name="reflectance" value="0.8, 0.8, 0.8" />
 	</bsdf>
 	<bsdf type="roughconductor" id="FloorBSDF">
-		<float name="alpha" value="0.1" />
+		<float name="alpha" value="0.02" />
 		<string name="distribution" value="ggx" />
 		<texture name="specular_reflectance" type="checkerboard">
 			<rgb name="color1" value="0.2, 0.2, 0.2" />

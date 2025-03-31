@@ -1,5 +1,6 @@
 import numpy as np
 
+from typing import List
 
 class FPSCamera:
 
@@ -8,17 +9,13 @@ class FPSCamera:
         # Intrinsics
         self.width = intrinsics['width']
         self.height = intrinsics['height']
-        self.x_fov = intrinsics['x_fov']
 
-        # Extrinsics
-        self.pos = extrinsics[:3, 3]
-        self.x = extrinsics[:3, 0]
-        self.y = extrinsics[:3, 1]
-        self.z = extrinsics[:3, 2]
-
-        self.phi = np.rad2deg(np.arctan2(self.z[2], self.z[0]))
-        self.theta = np.rad2deg(np.arccos(self.z[1]))
+        self.set_x_fov(intrinsics['x_fov'])
+        self.set_transform(extrinsics)
         self.speed = speed
+
+        # Quaternion of rotation
+        self.quat = None
 
     def get_x_fov(self):
         return self.x_fov
@@ -30,6 +27,64 @@ class FPSCamera:
             [self.x[2], self.y[2], self.z[2], self.pos[2]],
             [0, 0, 0, 1]
         ])
+    
+    def get_quaternion(self):
+        """
+        Get quaternion representation of rotation
+        """
+        if self.quat is not None:
+            return self.quat
+        
+        matrix = self.get_transform()
+        trace = matrix[0, 0] + matrix[1, 1] + matrix[2, 2]
+
+        if trace > 0:
+            s = 0.5 / np.sqrt(trace + 1.0)
+            qw = 0.25 / s
+            qx = (matrix[2, 1] - matrix[1, 2]) * s
+            qy = (matrix[0, 2] - matrix[2, 0]) * s
+            qz = (matrix[1, 0] - matrix[0, 1]) * s
+        else:
+            if matrix[0, 0] > matrix[1, 1] and matrix[0, 0] > matrix[2, 2]:
+                s = 2.0 * np.sqrt(1.0 + matrix[0, 0] - matrix[1, 1] - matrix[2, 2])
+                qw = (matrix[2, 1] - matrix[1, 2]) / s
+                qx = 0.25 * s
+                qy = (matrix[0, 1] + matrix[1, 0]) / s
+                qz = (matrix[0, 2] + matrix[2, 0]) / s
+            elif matrix[1, 1] > matrix[2, 2]:
+                s = 2.0 * np.sqrt(1.0 + matrix[1, 1] - matrix[0, 0] - matrix[2, 2])
+                qw = (matrix[0, 2] - matrix[2, 0]) / s
+                qx = (matrix[0, 1] + matrix[1, 0]) / s
+                qy = 0.25 * s
+                qz = (matrix[1, 2] + matrix[2, 1]) / s
+            else:
+                s = 2.0 * np.sqrt(1.0 + matrix[2, 2] - matrix[0, 0] - matrix[1, 1])
+                qw = (matrix[1, 0] - matrix[0, 1]) / s
+                qx = (matrix[0, 2] + matrix[2, 0]) / s
+                qy = (matrix[1, 2] + matrix[2, 1]) / s
+                qz = 0.25 * s
+
+        quaternion = np.array([qx, qy, qz, qw])
+
+        # Normalize the quaternion
+        quaternion /= np.linalg.norm(quaternion)
+
+        # Cache the quaternion
+        self.quat = quaternion
+
+        return quaternion
+    
+    def set_x_fov(self, x_fov):
+        self.x_fov = x_fov
+
+    def set_transform(self, extrinsics):
+        self.pos = extrinsics[:3, 3]
+        self.x = extrinsics[:3, 0]
+        self.y = extrinsics[:3, 1]
+        self.z = extrinsics[:3, 2]
+
+        self.phi = np.rad2deg(np.arctan2(self.z[2], self.z[0]))
+        self.theta = np.rad2deg(np.arccos(self.z[1]))
 
     # idx: 0 for z, 1 for y, 2 for x
     def move(self, idx, delta):
@@ -59,37 +114,69 @@ class FPSCamera:
         self.x_fov = np.clip(self.x_fov + delta * self.speed, 10, 90)
 
 
+def quaternion_slerp(q1, q2, t):
+    """
+    Quaternion Spherical Linear Interpolation
+    """
+    cos_theta = np.dot(q1, q2)
+
+    if cos_theta < 0:
+        q1 = -q1
+        cos_theta = -cos_theta
+    
+    angle = np.arccos(cos_theta)
+    return (np.sin((1 - t) * angle) * q1 + np.sin(t * angle) * q2) / np.sin(angle)
+
+def quat2Matrix(rot, pos):
+    """
+    Convert quaternion to transformation matrix (Left-handed)
+    """
+    xx = rot[0] * rot[0]
+    yy = rot[1] * rot[1]
+    zz = rot[2] * rot[2]
+    xy = rot[0] * rot[1]
+    xz = rot[0] * rot[2]
+    yz = rot[1] * rot[2]
+    xw = rot[0] * rot[3]
+    yw = rot[1] * rot[3]
+    zw = rot[2] * rot[3]
+    
+    return np.array([
+        [1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw), pos[0]],
+        [2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw), pos[1]],
+        [2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy), pos[2]],
+        [0, 0, 0, 1]
+    ])
+
 class MovingCamera:
+    def __init__(self, cameras: List[FPSCamera]):
+        self.cameras = cameras
+    
+    def get_camera(self, section, cam_v) -> FPSCamera:
+        # Get two cameras
+        cam1: FPSCamera = self.cameras[section]
+        cam2: FPSCamera = self.cameras[(section + 1) % len(self.cameras)]
 
-    # np.ndarray (3,) (3,) (4,) (4,)    quaternion in xyzw
-    def __init__(self, p1, p2, r1, r2):
-        self.pos_start = np.array(p1)
-        self.pos_end = np.array(p2)
-        self.rot_start = np.array(r1) / np.linalg.norm(np.array(r1))
-        self.rot_end = np.array(r2) / np.linalg.norm(np.array(r2))
-        
-    def qslerp(self, q1, q2, t):
-        
-        cos_theta = np.dot(q1, q2)
-        
-        if cos_theta < 0:
-            q1 = -q1
-            cos_theta = -cos_theta
-            
-        angle = np.arccos(cos_theta)
-        return (np.sin((1 - t) * angle) * q1 + np.sin(t * angle) * q2) / np.sin(angle)
+        assert cam1.width == cam2.width, "Width mismatch"
+        assert cam1.height == cam2.height, "Height mismatch"
 
-    def get_transform(self, t):
+        # Interpolate extrinsics
+        pos = cam1.pos + (cam2.pos - cam1.pos) * cam_v
+        rot1 = cam1.get_quaternion()
+        rot2 = cam2.get_quaternion()
+        # print("t", cam_v)
+        # print("rot1", rot1)
+        # print("rot2", rot2)
+        rot = quaternion_slerp(rot1, rot2, cam_v)
+        # print("rot", rot)
+        extrinsics = quat2Matrix(rot, pos)
 
-        pos = self.pos_start + (self.pos_end - self.pos_start) * t
-        rot = self.qslerp(self.rot_start, self.rot_end, t)
+        # Interpolate intrinsics
+        x_fov = cam1.x_fov + (cam2.x_fov - cam1.x_fov) * cam_v
 
-        return np.array([
-            [1 - 2 * rot[1]**2 - 2 * rot[2]**2, 2 * rot[0] * rot[1] - 2 * rot[2]
-                * rot[3], 2 * rot[0] * rot[2] + 2 * rot[1] * rot[3], pos[0]],
-            [2 * rot[0] * rot[1] + 2 * rot[2] * rot[3], 1 - 2 * rot[0]**2 -
-                2 * rot[2]**2, 2 * rot[1] * rot[2] - 2 * rot[0] * rot[3], pos[1]],
-            [2 * rot[0] * rot[2] - 2 * rot[1] * rot[3], 2 * rot[1] * rot[2] +
-                2 * rot[0] * rot[3], 1 - 2 * rot[0]**2 - 2 * rot[1]**2, pos[2]],
-            [0, 0, 0, 1]
-        ])
+        return FPSCamera({
+            "width": cam1.width,
+            "height": cam1.height,
+            "x_fov": x_fov
+        }, extrinsics, cam1.speed)
+
