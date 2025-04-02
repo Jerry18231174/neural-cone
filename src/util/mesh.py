@@ -237,5 +237,5 @@ def gen_remeshed_scene(scene_dir: str):
 
 
 if __name__ == "__main__":
-    scene_dir = "scenes/veach-ajar"
+    scene_dir = "scenes/cornell-box"
     surface_areas = meshify(scene_dir)

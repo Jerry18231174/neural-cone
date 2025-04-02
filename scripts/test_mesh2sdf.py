@@ -145,13 +145,13 @@ def visualize_sdf(sdf_info, size=256):
 
 
 if __name__ == "__main__":
-    mesh_path = "scenes/veach-ajar/raw_meshes/merged.ply"
+    mesh_path = "scenes/cornell-box/raw_meshes/merged.ply"
     # mesh_path = "scenes/remeshed.ply"
-    with open("configs/grid.json", "r") as f:
+    with open("configs/ncr.json", "r") as f:
         config = json.load(f)
     size = 100
     # sdf_info = convert_mesh_to_sdf(mesh_path, size=size, cache_path="out/cache/sdf_merged256.pkl")
-    sdf_info = get_sdf_from_model(config["model"]["sdf"], "veach-ajar", size=size)
+    sdf_info = get_sdf_from_model(config["model"]["sdf"], "cornell-box", size=size)
     # mesh = sdf_to_mesh(sdf_info, mesh_path="out/mesh/mcmesh_merge256.obj", size=size)
     visualize_sdf(sdf_info, size=size)
     print("Done.")

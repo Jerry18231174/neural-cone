@@ -126,8 +126,13 @@ class GridSDF:
 
         # Fetch corner sdf values
         assert (index >= 0).all() and (index <= resolution).all(), "Index out of range in SDF access!"
+        # [8N]
+        active = (index >= 0).all(dim=1) & (index < resolution).all(dim=1)
+        sdf = torch.ones((index.shape[0],), dtype=torch.float32, device="cuda") * 1e10
+
+        sdf[active] = self.grid[index[active, 0], index[active, 1], index[active, 2]]
         # [N, 8, 1]
-        sdf = self.grid[index[:, 0], index[:, 1], index[:, 2]].reshape(-1, 8, 1)
+        sdf = sdf.reshape(-1, 8, 1)
 
         # Interpolate
         # [N, 1]

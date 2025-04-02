@@ -191,7 +191,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
             pos_march = pos[glossy_mask] + t * dir[glossy_mask]
             active_t = (t < t_max).squeeze() & si_wr.is_valid().torch().bool()
             sdf = 100000 * torch.ones_like(radius)
-            sdf[active_t] = self.sdf_model(pos_march[active_t])
+            sdf[active_t] = self.sdf_model(pos_march[active_t]).abs()
             # print(i, "t:", t.mean(), t_max.mean())
             # print(i, "sdf:", sdf[active_t].mean())
 
