@@ -8,8 +8,8 @@ import torch.nn.functional as F
 
 from src.module.basic import ShallowMLP
 from src.module.hash_grid import MultiresHashGrid
-from src.sample.lhs_rhs import LHSRHS, extract_input, get_wr_itsc
-from src.model.sdf import GridSDF
+from src.sample.lhs_rhs import LHSRHS, extract_input, get_mc_itsc
+from src.model.kmeans import KMeans
 
 import drjit as dr
 import mitsuba as mi
@@ -124,12 +124,17 @@ class NeuralConeRadiosity(NeuralRadiosity):
     Neural Cone Radiosity model
     """
 
-    def __init__(self, config: dict, bbox: torch.Tensor, sdf_model: GridSDF) -> None:
+    def __init__(self, config: dict, bbox: torch.Tensor) -> None:
         super(NeuralConeRadiosity, self).__init__(config["ray"], bbox)
         self.config = config["cone"]
         self.k = config["cone_threshold"]
-        self.march_min = config["min_march_distance"]
-        self.march_steps = config["max_march_steps"]
+        self.n_glossy_rhs = config["n_glossy_rhs"]
+        self.n_glossy_samples = config["n_glossy_max_samples"]
+        
+        self.kMeans = KMeans(
+            n_clusters=self.n_glossy_samples,
+            n_iter=10
+        )
 
         self.pfilt_grid = MultiresHashGrid(self.config, bbox, twosided=False)
         
@@ -151,13 +156,12 @@ class NeuralConeRadiosity(NeuralRadiosity):
             activation=nn.ReLU(),
             output_activation=nn.Softplus()
         )
-        
-        self.sdf_model = sdf_model
 
     def query_model(
         self,
         si: mi.SurfaceInteraction3f,
         scene: mi.Scene,
+        seed: int = np.random.randint(0, 1000000)
     ) -> torch.Tensor:
         """
         Query the model with surface interaction
@@ -169,58 +173,32 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         # Mask & indices for glossy materials
         glossy_mask = ((roughness < 0.5) & (roughness > 0.01)).squeeze()
-        glossy_ind = torch.nonzero(glossy_mask).squeeze()
-        glossy_ind = mi.Int(glossy_ind.to(dtype=torch.int32))
 
-        # Gather glossy interactions
-        si_glo = dr.gather(mi.SurfaceInteraction3f, si, glossy_ind)
-        si_wr = get_wr_itsc(si_glo, scene)
-        t_max = si_wr.t.torch().unsqueeze(-1)
+        # Get RHS interaction distance from Monte Carlo sampling
+        si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
+        t_mc = si_glo_rhs.t.torch().reshape(-1, self.n_glossy_rhs)
+        # t_far = ~si_glo_rhs.is_valid().torch().bool().reshape(-1, self.n_glossy_rhs)
+
+        # Aggregate MC points into fixed number of gaussians
+        t_fix, n_fix, var_fix = self.kMeans.fit(t_mc)
 
         # Compute query size
         tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
         
-        # SDF cone marching
-        t = torch.ones_like(t_max) * self.march_min
-        transmittance = torch.ones_like(t_max)
+        # Glossy model inference
         cone_color = torch.zeros_like(nr_color[glossy_mask])
 
-        for i in range(self.march_steps - 1):
-            # Get radius and sdf
-            radius = t * tan_lobe
-            pos_march = pos[glossy_mask] + t * dir[glossy_mask]
-            active_t = (t < t_max).squeeze() & si_wr.is_valid().torch().bool()
-            sdf = 100000 * torch.ones_like(radius)
-            sdf[active_t] = self.sdf_model(pos_march[active_t]).abs()
-            # print(i, "t:", t.mean(), t_max.mean())
-            # print(i, "sdf:", sdf[active_t].mean())
-
-            # Prefiltered model inference
-            active = active_t & (sdf < radius).squeeze()
-
-            pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march[active], point_size=radius[active])
-            pfilt_enc = torch.cat([pfilt_enc, pos_march[active], -dir[glossy_mask][active], radius[active]], dim=-1)
+        for i in range(self.n_glossy_samples):
+            active = n_fix[:, i] >= 1
+            pos_march = (pos[glossy_mask] + t_fix[:, i:i+1] * dir[glossy_mask])[active]
+            radius = (t_fix[:, i:i+1] * tan_lobe + var_fix[:, i:i+1])[active] / 2
+        
+            pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, point_size=radius)
+            pfilt_enc = torch.cat([pfilt_enc, pos_march, -dir[glossy_mask][active], radius], dim=-1)
             march_color = torch.abs(self.cone_mlp(pfilt_enc))
 
             # Update color
-            opacity = ((radius - sdf.abs()) / radius)[active]
-            cone_color[active] += transmittance[active] * opacity * march_color
-            
-            # Update t & transmittance
-            transmittance[active] *= 1 - torch.clamp(opacity, 0, 1)
-            t[active_t] = t[active_t] + sdf[active_t]
-        
-        # Query model at glossy interactions
-        radius = t_max * tan_lobe
-        pos_march = pos[glossy_mask] + t_max * dir[glossy_mask]
-        active = si_wr.is_valid().torch().bool()
-        
-        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march[active], point_size=radius[active])
-        pfilt_enc = torch.cat([pfilt_enc, pos_march[active], -dir[glossy_mask][active], radius[active]], dim=-1)
-        march_color = torch.abs(self.cone_mlp(pfilt_enc))
-
-        # Update color
-        cone_color[active] += transmittance[active] * march_color
+            cone_color[active] += march_color * (n_fix[:, i:i+1] / self.n_glossy_rhs)[active]
 
         # Merge with neural radiosity
         color = nr_color.clone()

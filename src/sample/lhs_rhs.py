@@ -114,6 +114,38 @@ def get_wr_itsc(si: mi.SurfaceInteraction3f, scene: mi.Scene) -> torch.Tensor:
     return si_wr
 
 
+def get_mc_itsc(
+    si: mi.SurfaceInteraction3f,
+    scene: mi.Scene,
+    mask: torch.Tensor,
+    rhs_num: int,
+    seed: int = np.random.randint(0, 1000000)
+):
+    """
+    Monte Carlo sampling RHS intersection over bsdf
+    """
+    # Gather glossy interactions
+    indices = torch.nonzero(mask).squeeze().to(dtype=torch.int32)
+    point_num = indices.shape[0]
+    indices = dr.repeat(mi.Int(indices), rhs_num)
+    si_rhs: mi.SurfaceInteraction3f = dr.gather(mi.SurfaceInteraction3f, si, indices)
+
+    # Sample RHS interactions for glossy interactions
+    r_sampler: mi.Sampler = mi.load_dict({"type": "independent"})
+    r_sampler.seed(seed, point_num * rhs_num)
+    ctx = mi.BSDFContext()
+    bsdf_sample, bsdf_weight = si_rhs.bsdf().sample(
+        ctx, si_rhs,
+        r_sampler.next_1d(),
+        r_sampler.next_2d(),
+        active=True,
+    )
+    ray = si_rhs.spawn_ray(si_rhs.to_world(bsdf_sample.wo))
+    si_bsdf_first = scene.ray_intersect(ray)
+
+    return si_bsdf_first, bsdf_sample, bsdf_weight
+
+
 def compute_areas(scene: mi.Scene):
     """
     Compute the areas of each mesh of the scene

@@ -80,19 +80,19 @@ def train(config: dict, args: argparse.Namespace):
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
     bbox = scene.bbox()
-    bbox = torch.tensor([bbox.min - 1e-2, bbox.max + 1e-2], dtype=torch.float32, device="cuda")
+    bbox = torch.tensor([bbox.min - 1e-1, bbox.max + 1e-1], dtype=torch.float32, device="cuda")
 
     # Load model
     if config["model"]["name"] == "NR":
         model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
     elif config["model"]["name"] == "NCR":
-        # Load SDF
-        mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
-        sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
-        sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
-        sdf_model.compute(sdf_cache_path)
+        # # Load SDF
+        # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
+        # sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
+        # sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
+        # sdf_model.compute(sdf_cache_path)
 
-        model = NeuralConeRadiosity(config["model"], bbox, sdf_model).to("cuda")
+        model = NeuralConeRadiosity(config["model"], bbox).to("cuda")
     
     model.train()
 

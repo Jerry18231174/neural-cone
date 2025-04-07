@@ -244,6 +244,7 @@ class MultiresHashGrid(nn.Module):
             result = (resolution + 1) * (resolution + 1) * index[..., 0] + \
                      (resolution + 1) * index[..., 1] + \
                      index[..., 2]
+            result = result % self.grid_sizes[level]
         
         return result
                 
