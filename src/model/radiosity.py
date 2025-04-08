@@ -117,7 +117,15 @@ class NeuralRadiosity(nn.Module):
             rhs_color = lhs_rhs.render(rhs_color, None)
 
         return rhs_color
-    
+
+
+def get_ncr_bbox(scene: mi.Scene) -> torch.Tensor:
+    """
+    Get the bounding box of the scene for Neural Cone Radiosity
+    """
+    bbox = scene.bbox()
+    bbox = torch.tensor([bbox.min - 1e-1, bbox.max + 1e-1], dtype=torch.float32, device="cuda")
+    return bbox
 
 class NeuralConeRadiosity(NeuralRadiosity):
     """
@@ -167,20 +175,28 @@ class NeuralConeRadiosity(NeuralRadiosity):
         Query the model with surface interaction
         """
 
+        t0 = time.time()
         nr_color = super().query_model(si)
 
+        t1 = time.time()
         pos, normal, dir, albedo, roughness, active_side = extract_input(si)
 
         # Mask & indices for glossy materials
         glossy_mask = ((roughness < 0.5) & (roughness > 0.01)).squeeze()
 
         # Get RHS interaction distance from Monte Carlo sampling
+        t2 = time.time()
+        dr.sync_device()
         si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
+        dr.sync_device()
         t_mc = si_glo_rhs.t.torch().reshape(-1, self.n_glossy_rhs)
+        dr.sync_device()
+        t3 = time.time()
         # t_far = ~si_glo_rhs.is_valid().torch().bool().reshape(-1, self.n_glossy_rhs)
 
         # Aggregate MC points into fixed number of gaussians
         t_fix, n_fix, var_fix = self.kMeans.fit(t_mc)
+        t4 = time.time()
 
         # Compute query size
         tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
@@ -201,9 +217,18 @@ class NeuralConeRadiosity(NeuralRadiosity):
             cone_color[active] += march_color * (n_fix[:, i:i+1] / self.n_glossy_rhs)[active]
 
         # Merge with neural radiosity
+        t5 = time.time()
         color = nr_color.clone()
         color[glossy_mask] = self.merge_mlp(torch.cat(
             [nr_color[glossy_mask], cone_color, roughness[glossy_mask]], dim=-1))
+        t6 = time.time()
+        # print("######################")
+        # print("NR time:\t", t1-t0)
+        # print("Extract input:\t", t2-t1)
+        # print("MC sampling:\t", t3-t2)
+        # print("KMeans:\t\t", t4-t3)
+        # print("Model:\t\t", t5-t4)
+        # print("Merge:\t\t", t6-t5)
 
         return color
     

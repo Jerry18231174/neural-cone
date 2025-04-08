@@ -7,8 +7,9 @@ Neural Cone Tracing for Interactive Glossy Global Illumination
 * Trace a cone for glossy reflection lobe.
   * A **tri-plane** model is optimized to represent prefiltered radiance information. (Require a bilateral prefilter technique to prevent light leakage, considering geometry information)
   * Contributions along the cone is integrated in a (NeRF-like) volume rendering manner.
-  * We trace multiple rays in stationary relative direction (like in Unscented Kalman Filter), to simulate cone tracing. Any ray hit is considered a partial occlusion.
-  * Conduct SDF sphere tracing along main reflection direction, each local minimum less than radius is considered partial occlusion.
+  * ~~We trace multiple rays in stationary relative direction (like in Unscented Kalman Filter), to simulate cone tracing. Any ray hit is considered a partial occlusion.~~
+  * ~~Conduct SDF sphere tracing along main reflection direction, each local minimum less than radius is considered partial occlusion.~~
+  * We trace multiple RHS rays according to BSDF, and aggregate them into stationary number of points (KMeans).
 * Merge cone color (the smoother, the better) and model color (the rougher, the better) according to roughness for glossy shading points.
 
 ## Advantage scenarios

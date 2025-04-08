@@ -9,7 +9,7 @@
     "model": {
         "name": "NCR",
         "cone_threshold": 0.1,
-        "n_glossy_rhs": 32,
+        "n_glossy_rhs": 128,
         "n_glossy_max_samples": 4,
         "ray": {
             "name": "HashGrid",

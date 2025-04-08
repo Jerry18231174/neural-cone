@@ -16,7 +16,7 @@ mi.set_variant("cuda_rgb")
 
 # Custom
 from src.model.sdf import NGPSDF, GridSDF
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity
+from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_ncr_bbox
 from src.sample.lhs_rhs import LHSRHS
 from src.dataset.sdf import SDFDataset
 
@@ -79,8 +79,7 @@ def train(config: dict, args: argparse.Namespace):
 
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
-    bbox = scene.bbox()
-    bbox = torch.tensor([bbox.min - 1e-1, bbox.max + 1e-1], dtype=torch.float32, device="cuda")
+    bbox = get_ncr_bbox(scene)
 
     # Load model
     if config["model"]["name"] == "NR":
