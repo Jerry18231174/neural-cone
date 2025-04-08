@@ -186,9 +186,9 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         # Get RHS interaction distance from Monte Carlo sampling
         t2 = time.time()
-        dr.sync_device()
+        # dr.sync_device()
         si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
-        dr.sync_device()
+        # dr.sync_device()
         t_mc = si_glo_rhs.t.torch().reshape(-1, self.n_glossy_rhs)
         dr.sync_device()
         t3 = time.time()
@@ -201,34 +201,58 @@ class NeuralConeRadiosity(NeuralRadiosity):
         # Compute query size
         tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
         
+        t5 = time.time()
+
         # Glossy model inference
-        cone_color = torch.zeros_like(nr_color[glossy_mask])
+        N_glossy = t_fix.shape[0]
+        cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=pos.device)
+        # [N, n_clusters]
+        active = n_fix >= 1
+        radius = (t_fix * tan_lobe + var_fix)[active][:, None] / 2
+        # [N, n_clusters, 3: xyz]
+        pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :])[active]
 
-        for i in range(self.n_glossy_samples):
-            active = n_fix[:, i] >= 1
-            pos_march = (pos[glossy_mask] + t_fix[:, i:i+1] * dir[glossy_mask])[active]
-            radius = (t_fix[:, i:i+1] * tan_lobe + var_fix[:, i:i+1])[active] / 2
+        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, point_size=radius)
+        pfilt_enc = torch.cat([
+            pfilt_enc,
+            pos_march,
+            -dir[glossy_mask][:, None, :].repeat(1, self.n_glossy_samples, 1)[active],
+            radius
+        ], dim=-1)
+        march_color = torch.abs(self.cone_mlp(pfilt_enc))
+
+        cone_color[active] = march_color * (n_fix / self.n_glossy_rhs)[active][:, None]
+        cone_color = torch.sum(cone_color, dim=1)
+
+        # # Glossy model inference (Loop)
+        # cone_color = torch.zeros_like(pos[glossy_mask])
+
+        # for i in range(self.n_glossy_samples):
+        #     active = n_fix[:, i] >= 1
+        #     pos_march = (pos[glossy_mask] + t_fix[:, i:i+1] * dir[glossy_mask])[active]
+        #     radius = (t_fix[:, i:i+1] * tan_lobe + var_fix[:, i:i+1])[active] / 2
         
-            pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, point_size=radius)
-            pfilt_enc = torch.cat([pfilt_enc, pos_march, -dir[glossy_mask][active], radius], dim=-1)
-            march_color = torch.abs(self.cone_mlp(pfilt_enc))
+        #     pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, point_size=radius)
+        #     pfilt_enc = torch.cat([pfilt_enc, pos_march, -dir[glossy_mask][active], radius], dim=-1)
+        #     march_color = torch.abs(self.cone_mlp(pfilt_enc))
 
-            # Update color
-            cone_color[active] += march_color * (n_fix[:, i:i+1] / self.n_glossy_rhs)[active]
+        #     # Update color
+        #     cone_color[active] += march_color * (n_fix[:, i:i+1] / self.n_glossy_rhs)[active]
 
         # Merge with neural radiosity
-        t5 = time.time()
+        t6 = time.time()
         color = nr_color.clone()
         color[glossy_mask] = self.merge_mlp(torch.cat(
             [nr_color[glossy_mask], cone_color, roughness[glossy_mask]], dim=-1))
-        t6 = time.time()
-        # print("######################")
-        # print("NR time:\t", t1-t0)
-        # print("Extract input:\t", t2-t1)
-        # print("MC sampling:\t", t3-t2)
-        # print("KMeans:\t\t", t4-t3)
-        # print("Model:\t\t", t5-t4)
-        # print("Merge:\t\t", t6-t5)
+        t7 = time.time()
+        print("######################")
+        print("NR time:\t", t1-t0)
+        print("Extract input:\t", t2-t1)
+        print("MC sampling:\t", t3-t2)
+        print("KMeans:\t\t", t4-t3)
+        print("TanLobe:\t", t5-t4)
+        print("Model:\t\t", t6-t5)
+        print("Merge:\t\t", t7-t6)
 
         return color
     

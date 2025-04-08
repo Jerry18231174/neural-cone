@@ -9,7 +9,7 @@
     "model": {
         "name": "NCR",
         "cone_threshold": 0.1,
-        "n_glossy_rhs": 128,
+        "n_glossy_rhs": 32,
         "n_glossy_max_samples": 4,
         "ray": {
             "name": "HashGrid",
@@ -32,7 +32,7 @@
             "per_level_scale": 1.414,
             "interpolation": "Linear",
             "level_reduce": "Interp",
-            "n_hidden_dims": 256,
+            "n_hidden_dims": 128,
             "n_hidden_layers": 4
         },
         "sdf": {
