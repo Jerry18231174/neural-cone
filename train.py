@@ -110,13 +110,18 @@ def train(config: dict, args: argparse.Namespace):
         )))
     
     # Train
-    tqdm_iter = tqdm(range(config["train"]["epochs"] - ckpt_steps))
+    tqdm_iter = tqdm(range(ckpt_steps, config["train"]["epochs"]))
     for step in tqdm_iter:
+        # Adaptive RHS
+        ad_ratio = 2 ** int(4 * (step / config["train"]["epochs"]))
+        point_num = config["sample"]["n_points"] // ad_ratio
+        dirs_per_point = config["sample"]["n_dirs_per_point"] * ad_ratio
+
         # Sample
         lhs_rhs = LHSRHS(
             scene=scene,
-            point_num=config["sample"]["n_points"],
-            dirs_per_point=config["sample"]["n_dirs_per_point"],
+            point_num=point_num,
+            dirs_per_point=dirs_per_point,
         )
         lhs_rhs.sample(seed=step)
 
@@ -141,7 +146,7 @@ def train(config: dict, args: argparse.Namespace):
 
         if (step + 1) % config["train"]["save_every"] == 0:
             torch.save(model.state_dict(), os.path.join(
-                "out", args.scene, "checkpoints", f"{step + ckpt_steps + 1}" + "_" + config["model"]["name"] + ".pth"
+                "out", args.scene, "checkpoints", f"{step + 1}" + "_" + config["model"]["name"] + ".pth"
             ))
         if (step + 1) % 100 == 0:
             print("lhs color", lhs_color[:3])

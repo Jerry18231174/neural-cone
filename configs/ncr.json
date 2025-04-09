@@ -9,7 +9,7 @@
     "model": {
         "name": "NCR",
         "cone_threshold": 0.1,
-        "n_glossy_rhs": 32,
+        "n_glossy_rhs": 128,
         "n_glossy_max_samples": 4,
         "ray": {
             "name": "HashGrid",
@@ -20,8 +20,8 @@
             "per_level_scale": 2.0,
             "interpolation": "Linear",
             "level_reduce": "Concat",
-            "n_hidden_dims": 256,
-            "n_hidden_layers": 4
+            "n_hidden_dims": 128,
+            "n_hidden_layers": 3
         },
         "cone": {
             "name": "HashGrid",
@@ -32,8 +32,8 @@
             "per_level_scale": 1.414,
             "interpolation": "Linear",
             "level_reduce": "Interp",
-            "n_hidden_dims": 128,
-            "n_hidden_layers": 4
+            "n_hidden_dims": 64,
+            "n_hidden_layers": 2
         },
         "sdf": {
             "name": "Grid",
@@ -43,8 +43,8 @@
         }
     },
     "sample": {
-        "n_points": 32768,
-        "n_dirs_per_point": 32,
+        "n_points": 65536,
+        "n_dirs_per_point": 64,
         "l_unscented": 2,
         "sdf": {
             "batch_size": 262144

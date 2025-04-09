@@ -55,12 +55,15 @@ class NeuralRadiosity(nn.Module):
             output_activation=nn.Identity()
         )
 
-    def query_model(self, si: mi.SurfaceInteraction3f) -> torch.Tensor:
+    def query_model(self, si: mi.SurfaceInteraction3f, scene: mi.Scene) -> torch.Tensor:
         """
         Query the model with surface interaction
         """
 
         pos, normal, dir, albedo, roughness, active_side = extract_input(si)
+        
+        # Query emission
+        emission = si.emitter(scene).eval(si).torch().clone()
 
         # Hash grid encoding
         enc = self.hash_grid(pos)
@@ -69,7 +72,7 @@ class NeuralRadiosity(nn.Module):
         enc = torch.cat([enc, pos, dir, normal, albedo, roughness], dim=-1)
 
         # Pass through MLP
-        color = torch.abs(self.mlp(enc))
+        color = torch.abs(self.mlp(enc)) + emission
 
         return color
     
@@ -80,8 +83,9 @@ class NeuralRadiosity(nn.Module):
         si_lhs = lhs_rhs.si_lhs
         si_rhs = lhs_rhs.si_bsdf
 
-        lhs_color = self.query_model(si_lhs)
-        rhs_color = self.query_model(si_rhs)
+        lhs_color = self.query_model(si_lhs, lhs_rhs.scene)
+        with torch.no_grad():
+            rhs_color = self.query_model(si_rhs, lhs_rhs.scene)
 
         # Render rhs color
         rhs_color = rhs_color.reshape(-1, lhs_rhs.dirs_per_point, 3)
@@ -94,7 +98,7 @@ class NeuralRadiosity(nn.Module):
     
     def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene):
         with torch.no_grad():
-            lhs_color = self.query_model(si_lhs)
+            lhs_color = self.query_model(si_lhs, scene)
         
         return lhs_color
     
@@ -110,7 +114,7 @@ class NeuralRadiosity(nn.Module):
             lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
             si_rhs = lhs_rhs.si_bsdf
 
-            rhs_color = self.query_model(si_rhs)
+            rhs_color = self.query_model(si_rhs, scene)
 
             # Render rhs color
             rhs_color = rhs_color.reshape(-1, spp, 3)
@@ -141,7 +145,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         
         self.kMeans = KMeans(
             n_clusters=self.n_glossy_samples,
-            n_iter=10
+            n_iter=3
         )
 
         self.pfilt_grid = MultiresHashGrid(self.config, bbox, twosided=False)
@@ -176,7 +180,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         """
 
         t0 = time.time()
-        nr_color = super().query_model(si)
+        color = super().query_model(si, scene)
 
         t1 = time.time()
         pos, normal, dir, albedo, roughness, active_side = extract_input(si)
@@ -184,23 +188,30 @@ class NeuralConeRadiosity(NeuralRadiosity):
         # Mask & indices for glossy materials
         glossy_mask = ((roughness < 0.5) & (roughness > 0.01)).squeeze()
 
+        if not glossy_mask.any():
+            return color
+
         # Get RHS interaction distance from Monte Carlo sampling
+        dr.sync_device()
+        torch.cuda.synchronize()
         t2 = time.time()
-        # dr.sync_device()
         si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
-        # dr.sync_device()
         t_mc = si_glo_rhs.t.torch().reshape(-1, self.n_glossy_rhs)
         dr.sync_device()
+        torch.cuda.synchronize()
         t3 = time.time()
-        # t_far = ~si_glo_rhs.is_valid().torch().bool().reshape(-1, self.n_glossy_rhs)
 
         # Aggregate MC points into fixed number of gaussians
         t_fix, n_fix, var_fix = self.kMeans.fit(t_mc)
+        dr.sync_device()
+        torch.cuda.synchronize()
         t4 = time.time()
 
         # Compute query size
         tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
         
+        dr.sync_device()
+        torch.cuda.synchronize()
         t5 = time.time()
 
         # Glossy model inference
@@ -241,63 +252,17 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         # Merge with neural radiosity
         t6 = time.time()
-        color = nr_color.clone()
         color[glossy_mask] = self.merge_mlp(torch.cat(
-            [nr_color[glossy_mask], cone_color, roughness[glossy_mask]], dim=-1))
+            [color[glossy_mask], cone_color, roughness[glossy_mask]], dim=-1))
         t7 = time.time()
-        print("######################")
-        print("NR time:\t", t1-t0)
-        print("Extract input:\t", t2-t1)
-        print("MC sampling:\t", t3-t2)
-        print("KMeans:\t\t", t4-t3)
-        print("TanLobe:\t", t5-t4)
-        print("Model:\t\t", t6-t5)
-        print("Merge:\t\t", t7-t6)
+        # print("######################")
+        # print("NR time:\t", t1-t0)
+        # print("Extract input:\t", t2-t1)
+        # print("MC sampling:\t", t3-t2)
+        # print("KMeans:\t\t", t4-t3)
+        # print("TanLobe:\t", t5-t4)
+        # print("Model:\t\t", t6-t5)
+        # print("Merge:\t\t", t7-t6)
 
         return color
-    
-    def forward(self, lhs_rhs: LHSRHS) -> torch.Tensor:
-        """
-        Query the model with lhs and rhs interactions
-        """
-        si_lhs = lhs_rhs.si_lhs
-        si_rhs = lhs_rhs.si_bsdf
-
-        lhs_color = self.query_model(si_lhs, lhs_rhs.scene)
-        rhs_color = self.query_model(si_rhs, lhs_rhs.scene)
-
-        # Render rhs color
-        rhs_color = rhs_color.reshape(-1, lhs_rhs.dirs_per_point, 3)
-        rhs_color = lhs_rhs.render(rhs_color, None)
-
-        return {
-            "lhs": lhs_color,
-            "rhs": rhs_color
-        }
-    
-    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene):
-        with torch.no_grad():
-            lhs_color = self.query_model(si_lhs, scene)
-        
-        return lhs_color
-    
-    def render_rhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, spp: int = 1):
-        with torch.no_grad():
-            # Sample rhs interactions
-            point_num = si_lhs.p.torch().shape[0]
-            lhs_rhs = LHSRHS(
-                scene=scene,
-                point_num=point_num,
-                dirs_per_point=spp
-            )
-            lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
-            si_rhs = lhs_rhs.si_bsdf
-
-            rhs_color = self.query_model(si_rhs, scene)
-
-            # Render rhs color
-            rhs_color = rhs_color.reshape(-1, spp, 3)
-            rhs_color = lhs_rhs.render(rhs_color, None)
-
-        return rhs_color
     

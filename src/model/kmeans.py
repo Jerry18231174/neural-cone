@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 
 class KMeans:
@@ -32,6 +33,7 @@ class KMeans:
         t_max = torch.max(t.masked_fill(inf_mask, -float('inf')), dim=1, keepdim=True).values
         t_mu = torch.rand(N, self.n_clusters, device=t.device) * (t_max - t_min) + t_min
         cluster_size = torch.zeros_like(t_mu)
+        cluster_ids = torch.arange(self.n_clusters, device=t.device)[None, :, None]  # [1, n_clusters, 1]
         
         for i in range(self.n_iter):
             # Compute distances from samples to cluster centers     [N, n_clusters, D]
@@ -40,10 +42,15 @@ class KMeans:
             cluster_idx = torch.min(t_dist, dim=1).indices
             # Set invalid samples' cluster to -1
             cluster_idx[inf_mask] = -1
+            
+            # mask = torch.zeros_like(t_dist, dtype=torch.bool)
+            # for j in range(self.n_clusters):
+            #     mask[:, j, :] = (cluster_idx == j)
+            
+            cluster_idx_exp = cluster_idx.unsqueeze(1)  # [N, 1, D]
+            mask = (cluster_idx_exp == cluster_ids)     # [N, n_clusters, D]
+
             # Update cluster centers and cluster size               [N, n_clusters, D]
-            mask = torch.zeros_like(t_dist, dtype=torch.bool)
-            for j in range(self.n_clusters):
-                mask[:, j, :] = (cluster_idx == j)
             cluster_size = torch.sum((mask + 1e-8), dim=-1)
             t_mu = torch.sum(t_fill0[:, None, :] * (mask + 1e-8), dim=-1) / cluster_size
         
