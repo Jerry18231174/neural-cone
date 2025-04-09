@@ -2,12 +2,18 @@
 import os
 import json
 import argparse
-import trimesh
+import glob
 from tqdm import tqdm
 
 # Computational
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, TensorDataset
+
+from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import RichProgressBar
+from lightning.pytorch.loggers import TensorBoardLogger
 
 # Mitsuba
 import drjit as dr
@@ -16,7 +22,7 @@ mi.set_variant("cuda_rgb")
 
 # Custom
 from src.model.sdf import NGPSDF, GridSDF
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_ncr_bbox
+from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
 from src.sample.lhs_rhs import LHSRHS
 from src.dataset.sdf import SDFDataset
 
@@ -79,11 +85,10 @@ def train(config: dict, args: argparse.Namespace):
 
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
-    bbox = get_ncr_bbox(scene)
 
     # Load model
     if config["model"]["name"] == "NR":
-        model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
+        model = NeuralRadiosity(config["model"]["ray"], config, scene)
     elif config["model"]["name"] == "NCR":
         # # Load SDF
         # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
@@ -91,67 +96,56 @@ def train(config: dict, args: argparse.Namespace):
         # sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
         # sdf_model.compute(sdf_cache_path)
 
-        model = NeuralConeRadiosity(config["model"], bbox).to("cuda")
+        model = NeuralConeRadiosity(config["model"], config, scene)
     
     model.train()
 
-    # Load optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["train"]["learning_rate"])
+    # Tensorboard logger
+    logger = TensorBoardLogger(
+        os.path.join("out", args.scene, "tb_logs"),
+        name=args.scene + "_" + config["model"]["name"]
+    )
+
+    checkpoint_callback = ModelCheckpoint(
+        monitor="loss",
+        mode="min",
+        save_top_k=3,
+        save_last=True,
+        every_n_train_steps=500,
+        dirpath=os.path.join("out", args.scene, "checkpoints", config["model"]["name"]),
+        filename="{step}_loss{loss:.3f}.pth"
+    )
+
+    # Lightning trainer
+    trainer = Trainer(
+        accelerator="gpu",
+        devices="auto",
+        strategy="ddp",
+        # precision=16,  # mixed precision
+        max_epochs=-1,
+        max_steps=config["train"]["epochs"],
+        logger=logger,
+        callbacks=[checkpoint_callback, RichProgressBar()],
+    )
 
     # Set up training directory or load from checkpoint
-    ckpt_steps = 0
     if not os.path.exists(os.path.join("out", args.scene)):
-        os.makedirs(os.path.join("out", args.scene))
-        os.makedirs(os.path.join("out", args.scene, "checkpoints"))
-    elif args.model_ckpt is not None:
-        ckpt_steps = int(args.model_ckpt)
-        model.load_state_dict(torch.load(os.path.join(
-            "out", args.scene, "checkpoints", args.model_ckpt + "_" + config["model"]["name"] + ".pth"
-        )))
+        os.makedirs(os.path.join("out", args.scene, "checkpoints", config["model"]["name"]))
     
     # Train
-    tqdm_iter = tqdm(range(ckpt_steps, config["train"]["epochs"]))
-    for step in tqdm_iter:
-        # Adaptive RHS
-        ad_ratio = 2 ** int(4 * (step / config["train"]["epochs"]))
-        point_num = config["sample"]["n_points"] // ad_ratio
-        dirs_per_point = config["sample"]["n_dirs_per_point"] * ad_ratio
-
-        # Sample
-        lhs_rhs = LHSRHS(
-            scene=scene,
-            point_num=point_num,
-            dirs_per_point=dirs_per_point,
-        )
-        lhs_rhs.sample(seed=step)
-
-        # Forward pass
-        result = model(lhs_rhs)
-        lhs_color = result["lhs"]
-        rhs_color = result["rhs"].detach()
-
-        # Compute loss
-        nr_norm = (rhs_color + lhs_color).detach() / 2 + 1e-1
-        loss = torch.mean(((rhs_color - lhs_color) / nr_norm) ** 2)
+    fake_loader = DataLoader(TensorDataset(torch.arange(1)))
+    if args.model_ckpt is None:
+        trainer.fit(model, train_dataloaders=fake_loader)
+    else:
+        ckpts = glob.glob(os.path.join(
+            "out", args.scene, "checkpoints", config["model"]["name"], args.model_ckpt + "*.pth"
+        ))
+        if len(ckpts) == 0:
+            raise ValueError(f"No checkpoint found for {args.model_ckpt}")
         
-        # Optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        torch.cuda.empty_cache()
-        dr.flush_malloc_cache()
-        
-        tqdm_iter.set_description("loss: {:.4e}".format(loss.item()))
-
-        if (step + 1) % config["train"]["save_every"] == 0:
-            torch.save(model.state_dict(), os.path.join(
-                "out", args.scene, "checkpoints", f"{step + 1}" + "_" + config["model"]["name"] + ".pth"
-            ))
-        if (step + 1) % 100 == 0:
-            print("lhs color", lhs_color[:3])
-            print("rhs color", rhs_color[:3])
-
+        # Train from the chosen checkpoint
+        trainer.fit(model, ckpt_path=ckpts[0], train_dataloaders=fake_loader)
+    
 
 def parse_args():
     """
@@ -161,7 +155,6 @@ def parse_args():
     parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
     parser.add_argument("-m", "--model_ckpt", type=str, default=None)
-    parser.add_argument("-v", "--viewer", type=bool, default=False)
     return parser.parse_args()
 
 

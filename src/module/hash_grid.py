@@ -18,14 +18,12 @@ class MultiresHashGrid(nn.Module):
             [0, 1, 1],
             [1, 1, 1],
         ]],
-        dtype=torch.int64,
-        device="cuda"
+        dtype=torch.int64
     )
 
     big_primes = torch.tensor(
         [1, 19349663, 83492791],
-        dtype=torch.int64,
-        device="cuda"
+        dtype=torch.int64
     )
 
     def __init__(self, config: dict, bbox: torch.Tensor, twosided: bool = False) -> None:
@@ -33,6 +31,10 @@ class MultiresHashGrid(nn.Module):
         self.config = config
         self.bbox = bbox
         self.twosided = twosided
+
+        # Move constants to device
+        self.index_offset = MultiresHashGrid.index_offset.to(device=bbox.device)
+        self.big_primes = MultiresHashGrid.big_primes.to(device=bbox.device)
 
         self.D = config["n_features_per_level"]
 
@@ -55,7 +57,7 @@ class MultiresHashGrid(nn.Module):
             grid = nn.Parameter(torch.zeros(
                 (n_items, 2, self.D) if twosided else (n_items, 1, self.D),
                 dtype=torch.float32,
-                device="cuda"
+                device=bbox.device
             ))
 
             self.grids.append(grid)
@@ -86,7 +88,7 @@ class MultiresHashGrid(nn.Module):
 
             # Calculate hash index
             # [N, 8, 3]
-            index = base.unsqueeze(1) + MultiresHashGrid.index_offset
+            index = base.unsqueeze(1) + self.index_offset
             # [N, 8]
             index = self._hash_func(index, i)
             # [8N]
@@ -181,7 +183,7 @@ class MultiresHashGrid(nn.Module):
 
             # Calculate hash index
             # [N, 8, 3]
-            index = base.unsqueeze(1) + MultiresHashGrid.index_offset
+            index = base.unsqueeze(1) + self.index_offset
             # [N, 8]
             index = self._hash_func(index, i)
             # [8N]
@@ -238,7 +240,7 @@ class MultiresHashGrid(nn.Module):
         resolution = int(self.config["base_resolution"] * self.config["per_level_scale"] ** level)
 
         if ((resolution + 1) ** 3) > 2 ** self.config["log2_hashmap_size"]:
-            result = (index * MultiresHashGrid.big_primes).sum(dim=-1) % \
+            result = (index * self.big_primes).sum(dim=-1) % \
                      (2 ** self.config["log2_hashmap_size"])
         else:
             result = (resolution + 1) * (resolution + 1) * index[..., 0] + \

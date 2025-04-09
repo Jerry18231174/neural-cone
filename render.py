@@ -10,7 +10,7 @@ import torch
 
 # Custom
 from src.model.sdf import NGPSDF, GridSDF
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_ncr_bbox
+from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
 from src.integrator.neural import RadiosityIntegrator
 from src.integrator.path import *
 from src.integrator.g_buffer import *
@@ -30,7 +30,7 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
     params = mi.traverse(scene)
-    bbox = get_ncr_bbox(scene)
+    bbox = get_model_bbox(scene)
 
     # Load model
     if config["model"]["name"] == "NR":

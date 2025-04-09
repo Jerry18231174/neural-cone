@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import lightning as L
 
 from src.module.basic import ShallowMLP
 from src.module.hash_grid import MultiresHashGrid
@@ -14,6 +15,15 @@ from src.model.kmeans import KMeans
 import drjit as dr
 import mitsuba as mi
 mi.set_variant("cuda_rgb")
+
+
+def get_model_bbox(scene: mi.Scene) -> torch.Tensor:
+    """
+    Get the bounding box of the scene for Neural Cone Radiosity
+    """
+    bbox = scene.bbox()
+    bbox = torch.tensor([bbox.min - 1e-1, bbox.max + 1e-1], dtype=torch.float32)
+    return bbox
 
 
 def tan_ggx_lobe(alpha: torch.Tensor, k: float = 0.5) -> torch.Tensor:
@@ -34,16 +44,64 @@ def tan_ggx_lobe(alpha: torch.Tensor, k: float = 0.5) -> torch.Tensor:
     return numer / denom
 
 
-class NeuralRadiosity(nn.Module):
+class RadiosityPipeline(L.LightningModule):
+    """
+    Radiosity pipeline
+    """
+    def __init__(self, pipeline_config: dict, scene: mi.Scene) -> None:
+        super(RadiosityPipeline, self).__init__()
+        self.pipeline_config = pipeline_config
+        self.scene = scene
+        self.bbox = get_model_bbox(scene)
+
+    def training_step(self, *args, **kwargs):
+        """
+        Training step for the model
+        """
+        # Adaptive RHS
+        ad_ratio = 2 ** int(4 * (self.global_step / self.pipeline_config["train"]["epochs"]))
+        point_num = self.pipeline_config["sample"]["n_points"] // ad_ratio
+        dirs_per_point = self.pipeline_config["sample"]["n_dirs_per_point"] * ad_ratio
+
+        # Sample
+        lhs_rhs = LHSRHS(
+            scene=self.scene,
+            point_num=point_num,
+            dirs_per_point=dirs_per_point,
+        )
+        lhs_rhs.sample(seed=self.global_step)
+
+        # Forward pass
+        result = self(lhs_rhs)
+        lhs_color = result["lhs"]
+        rhs_color = result["rhs"].detach()
+
+        # Compute loss
+        nr_norm = (rhs_color + lhs_color).detach() / 2 + 1e-1
+        loss = torch.mean(((rhs_color - lhs_color) / nr_norm) ** 2)
+
+        # Logging
+        self.log("loss", loss.item(), prog_bar=True)
+
+        if (self.global_step + 1) % 200 == 0:
+            print("lhs color", lhs_color[:3])
+            print("rhs color", rhs_color[:3])
+
+        return loss
+    
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.pipeline_config["train"]["learning_rate"])
+    
+
+class NeuralRadiosity(RadiosityPipeline):
     """
     Neural Radiosity model
     """
 
-    def __init__(self, config: dict, bbox: torch.Tensor) -> None:
-        super(NeuralRadiosity, self).__init__()
-        self.config = config
+    def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene) -> None:
+        super(NeuralRadiosity, self).__init__(pipeline_config, scene)
 
-        self.hash_grid = MultiresHashGrid(config, bbox, twosided=False)
+        self.hash_grid = MultiresHashGrid(config, self.bbox.to(device=self.device), twosided=False)
 
         self.mlp = ShallowMLP(
             # encoding + pos + normal + wr + albedo + roughness
@@ -123,21 +181,13 @@ class NeuralRadiosity(nn.Module):
         return rhs_color
 
 
-def get_ncr_bbox(scene: mi.Scene) -> torch.Tensor:
-    """
-    Get the bounding box of the scene for Neural Cone Radiosity
-    """
-    bbox = scene.bbox()
-    bbox = torch.tensor([bbox.min - 1e-1, bbox.max + 1e-1], dtype=torch.float32, device="cuda")
-    return bbox
-
 class NeuralConeRadiosity(NeuralRadiosity):
     """
     Neural Cone Radiosity model
     """
 
-    def __init__(self, config: dict, bbox: torch.Tensor) -> None:
-        super(NeuralConeRadiosity, self).__init__(config["ray"], bbox)
+    def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene) -> None:
+        super(NeuralConeRadiosity, self).__init__(config["ray"], pipeline_config, scene)
         self.config = config["cone"]
         self.k = config["cone_threshold"]
         self.n_glossy_rhs = config["n_glossy_rhs"]
@@ -148,7 +198,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
             n_iter=3
         )
 
-        self.pfilt_grid = MultiresHashGrid(self.config, bbox, twosided=False)
+        self.pfilt_grid = MultiresHashGrid(self.config, self.bbox.to(device=self.device), twosided=False)
         
         self.cone_mlp = ShallowMLP(
             # encoding + pos + normal + wr + albedo + roughness
@@ -216,7 +266,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         # Glossy model inference
         N_glossy = t_fix.shape[0]
-        cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=pos.device)
+        cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=self.device)
         # [N, n_clusters]
         active = n_fix >= 1
         radius = (t_fix * tan_lobe + var_fix)[active][:, None] / 2
