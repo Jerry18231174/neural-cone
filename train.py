@@ -2,8 +2,6 @@
 import os
 import json
 import argparse
-import re
-from tqdm import tqdm
 
 # Computational
 import numpy as np
@@ -20,61 +18,61 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 # Custom
-from src.model.sdf import NGPSDF, GridSDF
+# from src.model.sdf import NGPSDF, GridSDF
 from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity
-from src.dataset.sdf import SDFDataset
-from src.util.progress_bar import StepTQDMProgressBar, StepRichProgressBar, find_best_ckpt
+# from src.dataset.sdf import SDFDataset
+from src.util.progress_bar import StepRichProgressBar, find_best_ckpt
 
 
-def train_sdf(config: dict, args: argparse.Namespace):
-    """
-    Train SDF model
-    """
-    # Load model
-    # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
-    mesh_path = os.path.join("scenes", "remeshed.ply")
-    model = NGPSDF(config["model"]["sdf"], mesh_path).to("cuda")
-    model.train()
+# def train_sdf(config: dict, args: argparse.Namespace):
+#     """
+#     Train SDF model
+#     """
+#     # Load model
+#     # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
+#     mesh_path = os.path.join("scenes", "remeshed.ply")
+#     model = NGPSDF(config["model"]["sdf"], mesh_path).to("cuda")
+#     model.train()
 
-    # Load dataset
-    dataset = SDFDataset(mesh_path, size=1, batch_size=config["sample"]["sdf"]["batch_size"])
+#     # Load dataset
+#     dataset = SDFDataset(mesh_path, size=1, batch_size=config["sample"]["sdf"]["batch_size"])
 
-    # Load optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["train"]["learning_rate"])
+#     # Load optimizer
+#     optimizer = torch.optim.Adam(model.parameters(), lr=config["train"]["learning_rate"])
 
-    # Set up training directory or load from checkpoint
-    ckpt_steps = 0
-    if not os.path.exists(os.path.join("out", args.scene)):
-        os.makedirs(os.path.join("out", args.scene))
-        os.makedirs(os.path.join("out", args.scene, "checkpoints"))
-    elif args.model_ckpt is not None:
-        ckpt_steps = int(args.model_ckpt)
-        model.load_state_dict(torch.load(os.path.join(
-            "out", args.scene, "checkpoints", args.model_ckpt + "_model.pth"
-        )))
+#     # Set up training directory or load from checkpoint
+#     ckpt_steps = 0
+#     if not os.path.exists(os.path.join("out", args.scene)):
+#         os.makedirs(os.path.join("out", args.scene))
+#         os.makedirs(os.path.join("out", args.scene, "checkpoints"))
+#     elif args.model_ckpt is not None:
+#         ckpt_steps = int(args.model_ckpt)
+#         model.load_state_dict(torch.load(os.path.join(
+#             "out", args.scene, "checkpoints", args.model_ckpt + "_model.pth"
+#         )))
 
-    # Train
-    tqdm_iter = tqdm(range(config["train"]["epochs"] - ckpt_steps))
-    for step in tqdm_iter:
-        batch = dataset[step]
-        points = batch["xyz"].to("cuda")
-        sdf = model(points)
+#     # Train
+#     tqdm_iter = tqdm(range(config["train"]["epochs"] - ckpt_steps))
+#     for step in tqdm_iter:
+#         batch = dataset[step]
+#         points = batch["xyz"].to("cuda")
+#         sdf = model(points)
         
-        # Compute loss
-        rel_res = (sdf - batch["sdf"]) / (torch.abs(sdf) + torch.abs(batch["sdf"]) + 1e-3)
-        loss = torch.mean(rel_res ** 2)
+#         # Compute loss
+#         rel_res = (sdf - batch["sdf"]) / (torch.abs(sdf) + torch.abs(batch["sdf"]) + 1e-3)
+#         loss = torch.mean(rel_res ** 2)
         
-        # Optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+#         # Optimize
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
         
-        tqdm_iter.set_description("loss: {:.4e}".format(loss.item()))
+#         tqdm_iter.set_description("loss: {:.4e}".format(loss.item()))
 
-        if (step + 1) % config["train"]["save_every"] == 0:
-            torch.save(model.state_dict(), os.path.join(
-                "out", args.scene, "checkpoints", f"{step + ckpt_steps + 1}_model.pth"
-            ))
+#         if (step + 1) % config["train"]["save_every"] == 0:
+#             torch.save(model.state_dict(), os.path.join(
+#                 "out", args.scene, "checkpoints", f"{step + ckpt_steps + 1}_model.pth"
+#             ))
 
 
 def train(config: dict, args: argparse.Namespace):

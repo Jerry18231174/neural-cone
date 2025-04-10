@@ -31,11 +31,13 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
     params = mi.traverse(scene)
-    bbox = get_model_bbox(scene)
 
     # Load model
     ckpt_dir = os.path.join("out", args.scene, "checkpoints", config["model"]["name"])
-    ckpt_path, ckpt_steps = find_best_ckpt(ckpt_dir, metric="loss")
+    if args.model_ckpt is not None:
+        ckpt_path = os.path.join(ckpt_dir, args.model_ckpt + ".ckpt")
+    else:
+        ckpt_path, _ = find_best_ckpt(ckpt_dir, metric="loss")
 
     if config["model"]["name"] == "NR":
         model = NeuralRadiosity.load_from_checkpoint(
