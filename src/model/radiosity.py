@@ -52,7 +52,7 @@ class RadiosityPipeline(L.LightningModule):
         super(RadiosityPipeline, self).__init__()
         self.pipeline_config = pipeline_config
         self.scene = scene
-        self.bbox = get_model_bbox(scene)
+        self.register_buffer("bbox", get_model_bbox(scene))
 
     def training_step(self, *args, **kwargs):
         """
@@ -82,8 +82,10 @@ class RadiosityPipeline(L.LightningModule):
 
         # Logging
         self.log("loss", loss.item(), prog_bar=True)
+        self.log("real_step", self.global_step, prog_bar=True)
 
         if (self.global_step + 1) % 200 == 0:
+            print(f"##### Step {self.global_step + 1} #####")
             print("lhs color", lhs_color[:3])
             print("rhs color", rhs_color[:3])
 
@@ -101,7 +103,7 @@ class NeuralRadiosity(RadiosityPipeline):
     def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene) -> None:
         super(NeuralRadiosity, self).__init__(pipeline_config, scene)
 
-        self.hash_grid = MultiresHashGrid(config, self.bbox.to(device=self.device), twosided=False)
+        self.hash_grid = MultiresHashGrid(config, self.bbox, twosided=False)
 
         self.mlp = ShallowMLP(
             # encoding + pos + normal + wr + albedo + roughness
@@ -198,7 +200,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
             n_iter=3
         )
 
-        self.pfilt_grid = MultiresHashGrid(self.config, self.bbox.to(device=self.device), twosided=False)
+        self.pfilt_grid = MultiresHashGrid(self.config, self.bbox, twosided=False)
         
         self.cone_mlp = ShallowMLP(
             # encoding + pos + normal + wr + albedo + roughness

@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 # Custom
+from src.util.progress_bar import find_best_ckpt
 from src.model.sdf import NGPSDF, GridSDF
 from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
 from src.integrator.neural import RadiosityIntegrator
@@ -33,20 +34,24 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     bbox = get_model_bbox(scene)
 
     # Load model
-    if config["model"]["name"] == "NR":
-        model = NeuralRadiosity(config["model"]["ray"], bbox).to("cuda")
-    elif config["model"]["name"] == "NCR":
-        # Load SDF
-        # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
-        # sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
-        # sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
-        # sdf_model.compute(sdf_cache_path)
+    ckpt_dir = os.path.join("out", args.scene, "checkpoints", config["model"]["name"])
+    ckpt_path, ckpt_steps = find_best_ckpt(ckpt_dir, metric="loss")
 
-        model = NeuralConeRadiosity(config["model"], bbox).to("cuda")
-    
-    model.load_state_dict(torch.load(os.path.join(
-        "out", args.scene, "checkpoints", args.model_ckpt + "_" + config["model"]["name"] + ".pth"
-    )))
+    if config["model"]["name"] == "NR":
+        model = NeuralRadiosity.load_from_checkpoint(
+            ckpt_path,
+            config=config["model"]["ray"],
+            pipeline_config=config,
+            scene=scene
+        )
+    elif config["model"]["name"] == "NCR":
+        model = NeuralConeRadiosity.load_from_checkpoint(
+            ckpt_path,
+            config=config["model"],
+            pipeline_config=config,
+            scene=scene
+        )
+    print("Restoring model from", ckpt_path)
     model.eval()
 
     # Initialize integrator
@@ -211,7 +216,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
-    parser.add_argument("-m", "--model_ckpt", type=str, default="20000")
+    parser.add_argument("-m", "--model_ckpt", type=str, default=None)
     parser.add_argument("-o", "--output", type=str, default="./out/test.exr")
     return parser.parse_args()
 

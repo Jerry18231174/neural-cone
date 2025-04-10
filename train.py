@@ -2,7 +2,7 @@
 import os
 import json
 import argparse
-import glob
+import re
 from tqdm import tqdm
 
 # Computational
@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
-from lightning.pytorch.callbacks import RichProgressBar
 from lightning.pytorch.loggers import TensorBoardLogger
 
 # Mitsuba
@@ -22,9 +21,9 @@ mi.set_variant("cuda_rgb")
 
 # Custom
 from src.model.sdf import NGPSDF, GridSDF
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
-from src.sample.lhs_rhs import LHSRHS
+from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity
 from src.dataset.sdf import SDFDataset
+from src.util.progress_bar import StepTQDMProgressBar, StepRichProgressBar, find_best_ckpt
 
 
 def train_sdf(config: dict, args: argparse.Namespace):
@@ -86,34 +85,28 @@ def train(config: dict, args: argparse.Namespace):
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
 
-    # Load model
-    if config["model"]["name"] == "NR":
-        model = NeuralRadiosity(config["model"]["ray"], config, scene)
-    elif config["model"]["name"] == "NCR":
-        # # Load SDF
-        # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
-        # sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
-        # sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
-        # sdf_model.compute(sdf_cache_path)
-
-        model = NeuralConeRadiosity(config["model"], config, scene)
-    
-    model.train()
-
     # Tensorboard logger
     logger = TensorBoardLogger(
         os.path.join("out", args.scene, "tb_logs"),
-        name=args.scene + "_" + config["model"]["name"]
+        name=config["model"]["name"]
     )
+
+    # Set up training directory or load from checkpoint
+    if not os.path.exists(os.path.join("out", args.scene)):
+        os.makedirs(os.path.join("out", args.scene, "checkpoints", config["model"]["name"]))
+
+    # Load checkpoint files, choose the best one, set corresponding step
+    ckpt_dir = os.path.join("out", args.scene, "checkpoints", config["model"]["name"])
+    ckpt_path, ckpt_step = find_best_ckpt(ckpt_dir, metric="loss")
 
     checkpoint_callback = ModelCheckpoint(
         monitor="loss",
         mode="min",
         save_top_k=3,
-        save_last=True,
+        save_last=False,
         every_n_train_steps=500,
-        dirpath=os.path.join("out", args.scene, "checkpoints", config["model"]["name"]),
-        filename="{step}_loss{loss:.3f}.pth"
+        dirpath=ckpt_dir,
+        filename="{step}_{loss:.3f}"
     )
 
     # Lightning trainer
@@ -125,26 +118,45 @@ def train(config: dict, args: argparse.Namespace):
         max_epochs=-1,
         max_steps=config["train"]["epochs"],
         logger=logger,
-        callbacks=[checkpoint_callback, RichProgressBar()],
+        callbacks=[checkpoint_callback, StepRichProgressBar(total_steps=config["train"]["epochs"])],
+        log_every_n_steps=1,
     )
-
-    # Set up training directory or load from checkpoint
-    if not os.path.exists(os.path.join("out", args.scene)):
-        os.makedirs(os.path.join("out", args.scene, "checkpoints", config["model"]["name"]))
     
     # Train
     fake_loader = DataLoader(TensorDataset(torch.arange(1)))
-    if args.model_ckpt is None:
+    if ckpt_path is None:
+        # Load model
+        if config["model"]["name"] == "NR":
+            model = NeuralRadiosity(config["model"]["ray"], config, scene)
+        elif config["model"]["name"] == "NCR":
+            # # Load SDF
+            # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
+            # sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
+            # sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
+            # sdf_model.compute(sdf_cache_path)
+
+            model = NeuralConeRadiosity(config["model"], config, scene)
+        model.train()
+
         trainer.fit(model, train_dataloaders=fake_loader)
     else:
-        ckpts = glob.glob(os.path.join(
-            "out", args.scene, "checkpoints", config["model"]["name"], args.model_ckpt + "*.pth"
-        ))
-        if len(ckpts) == 0:
-            raise ValueError(f"No checkpoint found for {args.model_ckpt}")
-        
         # Train from the chosen checkpoint
-        trainer.fit(model, ckpt_path=ckpts[0], train_dataloaders=fake_loader)
+        if config["model"]["name"] == "NR":
+            model = NeuralRadiosity.load_from_checkpoint(
+                ckpt_path,
+                config=config["model"]["ray"],
+                pipeline_config=config,
+                scene=scene
+            )
+        elif config["model"]["name"] == "NCR":
+            model = NeuralConeRadiosity.load_from_checkpoint(
+                ckpt_path,
+                config=config["model"],
+                pipeline_config=config,
+                scene=scene
+            )
+        
+        trainer.fit(model, ckpt_path=ckpt_path, train_dataloaders=fake_loader)
     
 
 def parse_args():
@@ -154,7 +166,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
-    parser.add_argument("-m", "--model_ckpt", type=str, default=None)
+    # parser.add_argument("-m", "--model_ckpt", type=str, default=None)
     return parser.parse_args()
 
 
