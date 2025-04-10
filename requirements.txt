@@ -2,6 +2,7 @@ torch==2.1.1
 numpy==1.26.4
 drjit==0.4.6
 lightning
+tensorboard
 rich
 tqdm
 trimesh
