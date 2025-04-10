@@ -70,6 +70,7 @@ class RadiosityPipeline(L.LightningModule):
             dirs_per_point=dirs_per_point,
         )
         lhs_rhs.sample(seed=self.global_step)
+        lhs_rhs.to(device=self.device)
 
         # Forward pass
         result = self(lhs_rhs)
@@ -120,10 +121,10 @@ class NeuralRadiosity(RadiosityPipeline):
         Query the model with surface interaction
         """
 
-        pos, normal, dir, albedo, roughness, active_side = extract_input(si)
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device)
         
         # Query emission
-        emission = si.emitter(scene).eval(si).torch().clone()
+        emission = si.emitter(scene).eval(si).torch().to(device=self.device)
 
         # Hash grid encoding
         enc = self.hash_grid(pos)
@@ -235,7 +236,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         color = super().query_model(si, scene)
 
         t1 = time.time()
-        pos, normal, dir, albedo, roughness, active_side = extract_input(si)
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device)
 
         # Mask & indices for glossy materials
         glossy_mask = ((roughness < 0.5) & (roughness > 0.01)).squeeze()
@@ -248,7 +249,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         torch.cuda.synchronize()
         t2 = time.time()
         si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
-        t_mc = si_glo_rhs.t.torch().reshape(-1, self.n_glossy_rhs)
+        t_mc = si_glo_rhs.t.torch().to(device=self.device).reshape(-1, self.n_glossy_rhs)
         dr.sync_device()
         torch.cuda.synchronize()
         t3 = time.time()

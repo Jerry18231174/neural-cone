@@ -122,6 +122,9 @@ class StepRichProgressBar(ProgressBar):
     
     def on_train_end(self, trainer, pl_module):
         self._bar.stop()
+    
+    def disable(self):
+        pass
 
 
 class StepTQDMProgressBar(ProgressBar):
