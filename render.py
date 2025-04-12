@@ -54,12 +54,15 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             scene=scene
         )
     print("Restoring model from", ckpt_path)
+    if args.half_precision:
+        model = model.half().cuda()
     model.eval()
 
     # Initialize integrator
     nr_integrator = RadiosityIntegrator(
         model=model,
         render_mode="LHS",
+        precision=torch.float16 if args.half_precision else torch.float32,
     )
     path_integrator = mi.load_dict({
         "type": "pt",
@@ -180,12 +183,12 @@ def render(config: dict, args: argparse.Namespace):
 
             _, load_camera = imgui.checkbox("Load camera config", load_camera)
             if load_camera:
-                with np.load("./out/camera.npz", allow_pickle=True) as data:
+                with np.load(os.path.join("out", args.scene, "camera.npz"), allow_pickle=True) as data:
                     extrinsics = data["extrinsics"]
                     x_fov = data["intrinsics"].item()["x_fov"]
                     camera.set_transform(extrinsics)
                     camera.set_x_fov(x_fov)
-                print("Camera config loaded from camera.npz")
+                print("Camera config loaded from", os.path.join("out", args.scene, "camera.npz"))
                 load_camera = False
                 
             imgui.tree_pop()
@@ -220,6 +223,7 @@ def parse_args():
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
     parser.add_argument("-m", "--model_ckpt", type=str, default=None)
     parser.add_argument("-o", "--output", type=str, default="./out/test.exr")
+    parser.add_argument("-H", "--half_precision", type=bool, default=False)
     return parser.parse_args()
 
 

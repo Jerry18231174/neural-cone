@@ -90,7 +90,7 @@ def train(config: dict, args: argparse.Namespace):
     )
 
     # Set up training directory or load from checkpoint
-    if not os.path.exists(os.path.join("out", args.scene)):
+    if not os.path.exists(os.path.join("out", args.scene, "checkpoints", config["model"]["name"])):
         os.makedirs(os.path.join("out", args.scene, "checkpoints", config["model"]["name"]))
 
     # Load checkpoint files, choose the best one, set corresponding step

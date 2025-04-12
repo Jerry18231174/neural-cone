@@ -12,13 +12,15 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         self,
         model: NeuralRadiosity,
         render_mode: str = "LHS",
-        spp: int = 1
+        spp: int = 1,
+        precision=torch.float32
     ) -> None:
         super().__init__(mi.Properties())
 
         self.model = model
         self.render_mode = render_mode
         self.spp = spp
+        self.precision = precision
 
     def sample(
         self,
@@ -34,13 +36,13 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         with torch.no_grad():
         
             if self.render_mode == "LHS":
-                color = self.model.render_lhs(si, scene)
+                color = self.model.render_lhs(si, scene, precision=self.precision)
             elif self.render_mode == "RHS":
-                color = self.model.render_rhs(si, scene, spp=self.spp)
+                color = self.model.render_rhs(si, scene, spp=self.spp, precision=self.precision)
             else:
                 raise ValueError("Invalid render mode:", self.render_mode)
 
-        result = mi.Color3f(color)
+        result = mi.Color3f(color.to(torch.float32))
         
         dr.sync_device()
         torch.cuda.synchronize()

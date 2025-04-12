@@ -116,15 +116,15 @@ class NeuralRadiosity(RadiosityPipeline):
             output_activation=nn.Identity()
         )
 
-    def query_model(self, si: mi.SurfaceInteraction3f, scene: mi.Scene) -> torch.Tensor:
+    def query_model(self, si: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32) -> torch.Tensor:
         """
         Query the model with surface interaction
         """
 
-        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device)
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
         
         # Query emission
-        emission = si.emitter(scene).eval(si).torch().to(device=self.device)
+        emission = si.emitter(scene).eval(si).torch().clone().to(device=self.device, dtype=precision)
 
         # Hash grid encoding
         enc = self.hash_grid(pos)
@@ -157,13 +157,13 @@ class NeuralRadiosity(RadiosityPipeline):
             "rhs": rhs_color
         }
     
-    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene):
+    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32):
         with torch.no_grad():
-            lhs_color = self.query_model(si_lhs, scene)
+            lhs_color = self.query_model(si_lhs, scene, precision=precision)
         
         return lhs_color
     
-    def render_rhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, spp: int = 1):
+    def render_rhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32, spp: int = 1):
         with torch.no_grad():
             # Sample rhs interactions
             point_num = si_lhs.p.torch().shape[0]
@@ -173,9 +173,10 @@ class NeuralRadiosity(RadiosityPipeline):
                 dirs_per_point=spp
             )
             lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
+            lhs_rhs.to(device=self.device, dtype=precision)
             si_rhs = lhs_rhs.si_bsdf
 
-            rhs_color = self.query_model(si_rhs, scene)
+            rhs_color = self.query_model(si_rhs, scene, precision=precision)
 
             # Render rhs color
             rhs_color = rhs_color.reshape(-1, spp, 3)
@@ -222,21 +223,36 @@ class NeuralConeRadiosity(NeuralRadiosity):
             output_activation=nn.Softplus()
         )
 
+    def train(self, mode: bool = True):
+        """
+        Set the model to training mode
+        """
+        super().train(mode)
+        if not mode:
+            self.kMeans.set_kernel()
+        else:
+            self.kMeans.use_kernel = False
+        return self
+
     def query_model(
         self,
         si: mi.SurfaceInteraction3f,
         scene: mi.Scene,
+        precision=torch.float32,
         seed: int = np.random.randint(0, 1000000)
     ) -> torch.Tensor:
         """
         Query the model with surface interaction
         """
-
+        dr.sync_device()
+        torch.cuda.synchronize()
         t0 = time.time()
-        color = super().query_model(si, scene)
+        color = super().query_model(si, scene, precision=precision)
 
+        dr.sync_device()
+        torch.cuda.synchronize()
         t1 = time.time()
-        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device)
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
 
         # Mask & indices for glossy materials
         glossy_mask = ((roughness < 0.5) & (roughness > 0.01)).squeeze()
@@ -249,13 +265,13 @@ class NeuralConeRadiosity(NeuralRadiosity):
         torch.cuda.synchronize()
         t2 = time.time()
         si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
-        t_mc = si_glo_rhs.t.torch().to(device=self.device).reshape(-1, self.n_glossy_rhs)
+        t_mc = si_glo_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
         dr.sync_device()
         torch.cuda.synchronize()
         t3 = time.time()
 
         # Aggregate MC points into fixed number of gaussians
-        t_fix, n_fix, var_fix = self.kMeans.fit(t_mc)
+        t_fix, n_fix, var_fix = self.kMeans.fit(t_mc, precision=precision)
         dr.sync_device()
         torch.cuda.synchronize()
         t4 = time.time()
@@ -269,14 +285,20 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         # Glossy model inference
         N_glossy = t_fix.shape[0]
-        cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=self.device)
+        cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=self.device, dtype=precision)
         # [N, n_clusters]
         active = n_fix >= 1
         radius = (t_fix * tan_lobe + var_fix)[active][:, None] / 2
         # [N, n_clusters, 3: xyz]
         pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :])[active]
+        dr.sync_device()
+        torch.cuda.synchronize()
+        t51 = time.time()
 
         pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, point_size=radius)
+        dr.sync_device()
+        torch.cuda.synchronize()
+        t52 = time.time()
         pfilt_enc = torch.cat([
             pfilt_enc,
             pos_march,
@@ -304,18 +326,26 @@ class NeuralConeRadiosity(NeuralRadiosity):
         #     cone_color[active] += march_color * (n_fix[:, i:i+1] / self.n_glossy_rhs)[active]
 
         # Merge with neural radiosity
+        dr.sync_device()
+        torch.cuda.synchronize()
         t6 = time.time()
         color[glossy_mask] = self.merge_mlp(torch.cat(
             [color[glossy_mask], cone_color, roughness[glossy_mask]], dim=-1))
+        dr.sync_device()
+        torch.cuda.synchronize()
         t7 = time.time()
-        # print("######################")
-        # print("NR time:\t", t1-t0)
-        # print("Extract input:\t", t2-t1)
-        # print("MC sampling:\t", t3-t2)
-        # print("KMeans:\t\t", t4-t3)
-        # print("TanLobe:\t", t5-t4)
-        # print("Model:\t\t", t6-t5)
-        # print("Merge:\t\t", t7-t6)
+        print("######################")
+        print("Glossy size:\t", glossy_mask.sum())
+        print("NR time:\t", t1-t0)
+        print("Extract input:\t", t2-t1)
+        print("MC sampling:\t", t3-t2)
+        print("KMeans:\t\t", t4-t3)
+        print("TanLobe:\t", t5-t4)
+        print("Model:\t\t", t6-t5)
+        print("\tPreproc:\t", t51-t5)
+        print("\tHashGrid:\t", t52-t51)
+        print("\tMLP:\t\t", t6-t52)
+        print("Merge:\t\t", t7-t6)
 
         return color
     

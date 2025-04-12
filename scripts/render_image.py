@@ -76,7 +76,8 @@ def parse_args():
     parser.add_argument("--script", type=str, default="visualize")
     parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
-    parser.add_argument("-m", "--model_ckpt", type=str, default="20000")
+    parser.add_argument("-m", "--model_ckpt", type=str, default=None)
+    parser.add_argument("-H", "--half_precision", type=bool, default=False)
     return parser.parse_args()
 
 

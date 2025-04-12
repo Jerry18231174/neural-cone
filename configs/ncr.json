@@ -44,7 +44,7 @@
     },
     "sample": {
         "n_points": 65536,
-        "n_dirs_per_point": 64,
+        "n_dirs_per_point": 32,
         "l_unscented": 2,
         "sdf": {
             "batch_size": 262144

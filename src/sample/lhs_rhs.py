@@ -79,7 +79,7 @@ def first_smooth(
     return final_si, throughput, null_face, spec_mask
 
 
-def extract_input(si: mi.SurfaceInteraction3f, device: str = "cuda"):
+def extract_input(si: mi.SurfaceInteraction3f, device: str = "cuda", dtype=torch.float32):
     """
     Extract input features from the surface interaction
     """
@@ -89,12 +89,12 @@ def extract_input(si: mi.SurfaceInteraction3f, device: str = "cuda"):
     si_view = mi.SurfaceInteraction3f(si)
     si_view.wi = mi.Point3f([0.353553, 0.353553, 0.866025])
 
-    p = si.p.torch().to(device=device)
-    n = n.torch().to(device=device)
-    wr = wr.torch().to(device=device)
-    albedo = si_view.bsdf().eval_diffuse_reflectance(si_view).torch().to(device=device)
-    roughness = si.bsdf().eval_roughness(si).torch().unsqueeze(1).to(device=device)
-    active_side = (si.wi[2].torch() < 0).unsqueeze(1).to(device=device)
+    p = si.p.torch().to(device=device, dtype=dtype)
+    n = n.torch().to(device=device, dtype=dtype)
+    wr = wr.torch().to(device=device, dtype=dtype)
+    albedo = si_view.bsdf().eval_diffuse_reflectance(si_view).torch().to(device=device, dtype=dtype)
+    roughness = si.bsdf().eval_roughness(si).torch().unsqueeze(1).to(device=device, dtype=dtype)
+    active_side = (si.wi[2].torch() < 0).unsqueeze(1).to(device=device, dtype=dtype)
     
     n[n.isnan()] = 0.3
     wr[wr.isnan()] = 0.3
@@ -396,18 +396,18 @@ class LHSRHS:
         ray = mi.Ray3f(self.si_lhs.p + wr * 1e-5, wr)
         self.si_wr = self.scene.ray_intersect(ray)
     
-    def to(self, device: str = "cuda"):
+    def to(self, device: str = "cuda", dtype=torch.float32):
         """
         Move all tensor attributes to the specified device
         """
-        self._emission = self._emission.to(device=device)
-        self._bsdf_valid = self._bsdf_valid.to(device=device)
-        self._bsdf_emission = self._bsdf_emission.to(device=device)
-        self._bsdf_weight = self._bsdf_weight.to(device=device)
-        self._mis_bsdf = self._mis_bsdf.to(device=device)
-        self._f_d_e = self._f_d_e.to(device=device)
-        self._emit_weight = self._emit_weight.to(device=device)
-        self._mis_emit = self._mis_emit.to(device=device)
+        self._emission = self._emission.to(device=device, dtype=dtype)
+        self._bsdf_valid = self._bsdf_valid.to(device=device, dtype=dtype)
+        self._bsdf_emission = self._bsdf_emission.to(device=device, dtype=dtype)
+        self._bsdf_weight = self._bsdf_weight.to(device=device, dtype=dtype)
+        self._mis_bsdf = self._mis_bsdf.to(device=device, dtype=dtype)
+        self._f_d_e = self._f_d_e.to(device=device, dtype=dtype)
+        self._emit_weight = self._emit_weight.to(device=device, dtype=dtype)
+        self._mis_emit = self._mis_emit.to(device=device, dtype=dtype)
     
 
 def render_pt(scene: mi.Scene, sampler: mi.Sampler, si: mi.SurfaceInteraction3f):
