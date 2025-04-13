@@ -10,7 +10,7 @@ class KMeans:
     """
     KMeans clustering algorithm.
     """
-    def __init__(self, n_clusters: int, n_iter: int = 10, use_kernel=False):
+    def __init__(self, n_clusters: int, n_iter: int = 10, use_kernel: bool = False):
         self.n_clusters = n_clusters
         self.n_iter = n_iter
         self.use_kernel = use_kernel
@@ -18,7 +18,7 @@ class KMeans:
         if use_kernel:
             self.set_kernel()
         
-    def set_kernel(self):
+    def load_kernel(self):
         self.use_kernel = True
 
         current_dir = os.path.dirname(os.path.abspath(__file__))

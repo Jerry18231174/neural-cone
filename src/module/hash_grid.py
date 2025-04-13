@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 
+import os
+from torch.utils.cpp_extension import load
+
 
 class MultiresHashGrid(nn.Module):
     """
@@ -26,11 +29,17 @@ class MultiresHashGrid(nn.Module):
         dtype=torch.int64
     )
 
-    def __init__(self, config: dict, bbox: torch.Tensor, twosided: bool = False) -> None:
+    def __init__(self,
+        config: dict,
+        bbox: torch.Tensor,
+        twosided: bool = False,
+        use_kernel: bool = False
+    ) -> None:
         super(MultiresHashGrid, self).__init__()
         self.config = config
         self.register_buffer("bbox", bbox)
         self.twosided = twosided
+        self.use_kernel = use_kernel
 
         # Move constants to device
         self.register_buffer("idx_offset", MultiresHashGrid.index_offset)
@@ -64,6 +73,40 @@ class MultiresHashGrid(nn.Module):
             self.resolutions.append(resolution)
             self.grid_sizes.append(n_items)
     
+    def load_kernel(self, kernel_name: str = "hash_grid_cuda") -> None:
+        """
+        Load CUDA kernel for hash function.
+        """
+        self.use_kernel = True
+
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        self.cuda_kernel = load(
+            name=kernel_name,
+            sources=[
+                os.path.join(current_dir, "hash_grid_cuda", "hash_grid_bindings.cpp"),
+                os.path.join(current_dir, "hash_grid_cuda", "hash_grid_cuda.cu")],
+            extra_cflags=[
+                '-O3',
+                "-DLEVELS={}".format(self.config["n_levels"]),
+                "-DDIMENSIONS={}".format(self.config["n_features_per_level"]),
+                "-DLOG_HASHMAP_SIZE={}".format(self.config["log2_hashmap_size"]),
+                "-DBASE_RESOLUTION={}".format(self.config["base_resolution"]),
+                "-DPER_LEVEL_SCALE={}".format(self.config["per_level_scale"]),
+                "-DLAYER_REDUCE={}".format(self.config["level_reduce"].upper()),
+            ],
+            extra_cuda_cflags=[
+                "-O3", "-g", "-lineinfo", "-Xcompiler", "-rdynamic",
+                "-DLEVELS={}".format(self.config["n_levels"]),
+                "-DDIMENSIONS={}".format(self.config["n_features_per_level"]),
+                "-DLOG_HASHMAP_SIZE={}".format(self.config["log2_hashmap_size"]),
+                "-DBASE_RESOLUTION={}".format(self.config["base_resolution"]),
+                "-DPER_LEVEL_SCALE={}".format(self.config["per_level_scale"]),
+                "-DLAYER_REDUCE={}".format(self.config["level_reduce"].upper()),
+                "-DTHREADS=128",
+            ],
+            verbose=True,
+        )
+    
     def forward(
         self,
         si_positions: torch.Tensor,
@@ -74,6 +117,9 @@ class MultiresHashGrid(nn.Module):
         """
         pos = self._normalize_pos(si_positions)
         features = []
+
+        if self.use_kernel and active_side is None:
+            return self.cuda_kernel.forward(pos.contiguous(), self.grids)
 
         for i in range(self.config["n_levels"]):
             resolution = self.resolutions[i]
@@ -131,8 +177,8 @@ class MultiresHashGrid(nn.Module):
     def forward_layer_interp(
         self,
         si_positions: torch.Tensor,
+        point_size: torch.Tensor,
         active_side: torch.Tensor = None,
-        point_size: torch.Tensor = None
     ) -> torch.Tensor:
         """
         Reduce: Interpolate features between adjacent levels
@@ -140,6 +186,9 @@ class MultiresHashGrid(nn.Module):
         pos = self._normalize_pos(si_positions, isotropic=True)
         size = point_size / (self.bbox[1] - self.bbox[0]).max()
         features = []
+
+        if self.use_kernel and active_side is None:
+            return self.cuda_kernel.forward_layer_interp(pos.contiguous(), size.contiguous(), self.grids)
 
         sample_ratio = 0.33
 

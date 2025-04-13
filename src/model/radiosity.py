@@ -116,6 +116,17 @@ class NeuralRadiosity(RadiosityPipeline):
             output_activation=nn.Identity()
         )
 
+    def train(self, mode: bool = True):
+        """
+        Set the model to training mode
+        """
+        super().train(mode)
+        if not mode:
+            self.hash_grid.load_kernel("NR_hash_grid_cuda")
+        else:
+            self.hash_grid.use_kernel = False
+        return self
+
     def query_model(self, si: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32) -> torch.Tensor:
         """
         Query the model with surface interaction
@@ -229,9 +240,11 @@ class NeuralConeRadiosity(NeuralRadiosity):
         """
         super().train(mode)
         if not mode:
-            self.kMeans.set_kernel()
+            self.kMeans.load_kernel()
+            self.pfilt_grid.load_kernel("NCR_hash_grid_cuda")
         else:
             self.kMeans.use_kernel = False
+            self.pfilt_grid.use_kernel = False
         return self
 
     def query_model(
@@ -295,7 +308,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         torch.cuda.synchronize()
         t51 = time.time()
 
-        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, point_size=radius)
+        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, radius)
         dr.sync_device()
         torch.cuda.synchronize()
         t52 = time.time()

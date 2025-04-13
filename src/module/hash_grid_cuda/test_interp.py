@@ -7,14 +7,14 @@ from torch.utils.cpp_extension import load
 # os.environ["TORCH_USE_CUDA_DSA"] = "1"  # 启用CUDA DSA（Device Side Allocation）
 
 
-N, L, D = 2**20, 4, 8
+N, L, D = 2**22, 8, 8
 M = 19
 base_resolution = 32
-per_level_scale = 2.0
+per_level_scale = 1.414
 
 # 自动编译 & 加载 Extension
 hash_grid = load(
-    name="hash_grid_cuda",
+    name="hash_grid_interp_cuda",
     sources=["hash_grid_bindings.cpp", "hash_grid_cuda.cu"],
     extra_cflags=[
         '-O3',
@@ -23,7 +23,7 @@ hash_grid = load(
         "-DLOG_HASHMAP_SIZE={}".format(M),
         "-DBASE_RESOLUTION={}".format(base_resolution),
         "-DPER_LEVEL_SCALE={}".format(per_level_scale),
-        "-DLAYER_REDUCE={}".format("CONCAT"),
+        "-DLAYER_REDUCE={}".format("INTERP"),
     ],
     extra_cuda_cflags=[
         "-O3", "-g", "-lineinfo", "-Xcompiler", "-rdynamic",
@@ -32,7 +32,7 @@ hash_grid = load(
         "-DLOG_HASHMAP_SIZE={}".format(M),
         "-DBASE_RESOLUTION={}".format(base_resolution),
         "-DPER_LEVEL_SCALE={}".format(per_level_scale),
-        "-DLAYER_REDUCE={}".format("CONCAT"),
+        "-DLAYER_REDUCE={}".format("INTERP"),
         "-DTHREADS=128",
     ],
     verbose=True,  # 可看到详细编译过程
@@ -50,13 +50,14 @@ for l in range(L):
     grids.append(grid)
 
 pos = torch.rand(N, 3, device='cuda', dtype=torch.float32)
+size = torch.rand(N, 1, device='cuda', dtype=torch.float32)
 
 torch.cuda.synchronize()
 t0 = time.time()
 
-enc = hash_grid.forward(pos, grids)
+enc = hash_grid.forward_layer_interp(pos, size, grids)
 
 torch.cuda.synchronize()
 t1 = time.time()
 
-print(f"CUDA Hash Grid time: {t1 - t0:.4f} seconds")
+print(f"CUDA Hash Grid Interp time: {t1 - t0:.4f} seconds")

@@ -7,5 +7,6 @@ rich
 tqdm
 trimesh
 mesh2sdf
+ninja
 opencv-python
 ffmpeg-python
