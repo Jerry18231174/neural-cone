@@ -207,13 +207,14 @@ class MultiresHashGrid(nn.Module):
             if i == 0:
                 upper_size, lower_size = sample_ratio / self.resolutions[0], sample_ratio / self.resolutions[1]
                 valid = (size > lower_size).squeeze()
-                layer_weight[coarse_most] = 1
+                # TODO: this two lines should exchange
                 layer_weight[valid] = (size[valid] - lower_size) / (upper_size - lower_size)
+                layer_weight[coarse_most] = 1
             elif i == self.config["n_levels"] - 1:
                 upper_size, lower_size = sample_ratio / self.resolutions[-2], sample_ratio / self.resolutions[-1]
                 valid = (size < upper_size).squeeze()
-                layer_weight[fine_most] = 1
                 layer_weight[valid] = (upper_size - size[valid]) / (upper_size - lower_size)
+                layer_weight[fine_most] = 1
             else:
                 upper_size = sample_ratio / self.resolutions[i - 1]
                 lower_size = sample_ratio / self.resolutions[i + 1]

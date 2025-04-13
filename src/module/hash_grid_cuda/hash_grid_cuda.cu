@@ -240,32 +240,40 @@ __global__ void forward_layer_interp_kernel(
     scalar_t3<scalar_t> pos3 = scalar_t3<scalar_t>(pos_ptr[0], pos_ptr[1], pos_ptr[2]);
 
     // Get corresponding level and layer interpolation weight
+    // Lower level means coarser, larger voxel size
     int level;
     scalar_t layer_weight = 0.0f;
     if (loffset) {  // Upper(finer) level, fit bottom-up
-        level = 0;
-        for (int i = 1; i < LEVELS; ++i) {
+        level = LEVELS;
+        for (int i = 0; i < LEVELS; ++i) {
             scalar_t voxel_size = INTERP_RATIO / resolutions[i];
-            if (voxel_size <= psize_val) {
+            if (psize_val > voxel_size) {
+                level = i;
                 break;
             }
-            level = i;
         }
-        layer_weight = (level == 0) ? 0.0f : ((level == LEVELS - 1) ? 1.0f : (
-            (psize_val - resolutions[level - 1]) / (resolutions[level] - resolutions[level - 1])));
+        scalar_t coarser_size = INTERP_RATIO / resolutions[level - 1];
+        scalar_t finer_size = INTERP_RATIO / resolutions[level];
+        layer_weight = (level == 0) ? 0.0f : ((level == LEVELS) ? 1.0f : (
+            (coarser_size - psize_val) / (coarser_size - finer_size)));
     } else {        // Lower(coarser) level, fit top-down
-        level = LEVELS - 1;
-        for (int i = LEVELS - 2; i >= 0; --i) {
+        level = -1;
+        for (int i = LEVELS - 1; i >= 0; --i) {
             scalar_t voxel_size = INTERP_RATIO / resolutions[i];
-            if (voxel_size >= psize_val) {
+            if (psize_val < voxel_size) {
+                level = i;
                 break;
             }
-            level = i;
         }
-        layer_weight = (level == LEVELS - 1) ? 0.0f : ((level == 0) ? 1.0f : (
-            (resolutions[level + 1] - psize_val) / (resolutions[level + 1] - resolutions[level])));
+        scalar_t coaser_size = INTERP_RATIO / resolutions[level];
+        scalar_t finer_size = INTERP_RATIO / resolutions[level + 1];
+        layer_weight = (level == LEVELS - 1) ? 0.0f : ((level == -1) ? 1.0f : (
+            (psize_val - finer_size) / (coaser_size - finer_size)));
     }
 
+    level = (level < 0) ? 0 : (level >= LEVELS ? LEVELS - 1 : level);
+
+    // This thread has non-zero weight
     int res = resolutions[level];
     int grid_size = grid_sizes[level];
 
@@ -288,8 +296,8 @@ __global__ void forward_layer_interp_kernel(
 
     // Calculate interpolation weight
     scalar_t weight = (corner3.x ? offset.x : (1 - offset.x)) *
-                      (corner3.y ? offset.y : (1 - offset.y)) *
-                      (corner3.z ? offset.z : (1 - offset.z));
+                    (corner3.y ? offset.y : (1 - offset.y)) *
+                    (corner3.z ? offset.z : (1 - offset.z));
 
     const scalar_t *grid_ptr = grids[level];
     const scalar_t *grid = grid_ptr + index * DIMENSIONS;
