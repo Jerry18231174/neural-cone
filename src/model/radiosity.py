@@ -58,8 +58,10 @@ class RadiosityPipeline(L.LightningModule):
         """
         Training step for the model
         """
+        seed = self.global_step * self.trainer.world_size + self.global_rank
+
         # Adaptive RHS
-        ad_ratio = 2 ** int(4 * (self.global_step / self.pipeline_config["train"]["epochs"]))
+        ad_ratio = 2 ** int(4 * (self.global_step / self.trainer.max_steps))
         point_num = self.pipeline_config["sample"]["n_points"] // ad_ratio
         dirs_per_point = self.pipeline_config["sample"]["n_dirs_per_point"] * ad_ratio
 
@@ -69,7 +71,7 @@ class RadiosityPipeline(L.LightningModule):
             point_num=point_num,
             dirs_per_point=dirs_per_point,
         )
-        lhs_rhs.sample(seed=self.global_step)
+        lhs_rhs.sample(seed=seed)
         lhs_rhs.to(device=self.device)
 
         # Forward pass
@@ -85,7 +87,7 @@ class RadiosityPipeline(L.LightningModule):
         self.log("loss", loss.item(), prog_bar=True)
         self.log("real_step", self.global_step, prog_bar=True)
 
-        if (self.global_step + 1) % 200 == 0:
+        if (self.global_step + 1) % 200 == 0 and self.global_rank == 0:
             print(f"##### Step {self.global_step + 1} #####")
             print("lhs color", lhs_color[:3])
             print("rhs color", rhs_color[:3])

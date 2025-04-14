@@ -24,6 +24,9 @@ from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity
 from src.util.progress_bar import StepRichProgressBar, find_best_ckpt
 
 
+def get_world_size():
+    return int(os.environ.get("WORLD_SIZE", 1))
+
 # def train_sdf(config: dict, args: argparse.Namespace):
 #     """
 #     Train SDF model
@@ -114,7 +117,7 @@ def train(config: dict, args: argparse.Namespace):
         strategy="ddp",
         # precision=16,  # mixed precision
         max_epochs=-1,
-        max_steps=config["train"]["epochs"],
+        max_steps=np.ceil(config["train"]["epochs"] / get_world_size()),
         logger=logger,
         callbacks=[checkpoint_callback, StepRichProgressBar(total_steps=config["train"]["epochs"])],
         log_every_n_steps=1,
