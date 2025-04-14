@@ -35,6 +35,9 @@ def find_best_ckpt(ckpt_dir: str, metric: str = "loss"):
                 best_metric = loss
                 best_ckpt = f
                 best_step = step
+    
+    if best_ckpt is None:
+        return None, 0
 
     return os.path.join(ckpt_dir, best_ckpt), best_step
 

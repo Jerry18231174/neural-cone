@@ -401,7 +401,7 @@ class LHSRHS:
         Move all tensor attributes to the specified device
         """
         self._emission = self._emission.to(device=device, dtype=dtype)
-        self._bsdf_valid = self._bsdf_valid.to(device=device, dtype=dtype)
+        self._bsdf_valid = self._bsdf_valid.to(device=device)
         self._bsdf_emission = self._bsdf_emission.to(device=device, dtype=dtype)
         self._bsdf_weight = self._bsdf_weight.to(device=device, dtype=dtype)
         self._mis_bsdf = self._mis_bsdf.to(device=device, dtype=dtype)

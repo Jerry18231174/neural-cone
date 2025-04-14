@@ -102,6 +102,7 @@ __device__ __forceinline__ int3 _corner_offset(int c) {
 // Should be initialized in host function
 __constant__ int resolutions[LEVELS];     // BASE_RESOLUTION * scale^level
 __constant__ int grid_sizes[LEVELS];      // (res + 1)^3
+__constant__ float grid_scales[LEVELS];   // INTERP_RATIO / res
 
 __device__ __forceinline__ uint32_t _hash_index(int3 index, int level) {
     constexpr uint32_t MAX_HASH = 1 << LOG_HASHMAP_SIZE;
@@ -246,27 +247,27 @@ __global__ void forward_layer_interp_kernel(
     if (loffset) {  // Upper(finer) level, fit bottom-up
         level = LEVELS;
         for (int i = 0; i < LEVELS; ++i) {
-            scalar_t voxel_size = INTERP_RATIO / resolutions[i];
+            scalar_t voxel_size = grid_scales[i];
             if (psize_val > voxel_size) {
                 level = i;
                 break;
             }
         }
-        scalar_t coarser_size = INTERP_RATIO / resolutions[level - 1];
-        scalar_t finer_size = INTERP_RATIO / resolutions[level];
+        scalar_t coarser_size = grid_scales[level - 1];
+        scalar_t finer_size = grid_scales[level];
         layer_weight = (level == 0) ? 0.0f : ((level == LEVELS) ? 1.0f : (
             (coarser_size - psize_val) / (coarser_size - finer_size)));
     } else {        // Lower(coarser) level, fit top-down
         level = -1;
         for (int i = LEVELS - 1; i >= 0; --i) {
-            scalar_t voxel_size = INTERP_RATIO / resolutions[i];
+            scalar_t voxel_size = grid_scales[i];
             if (psize_val < voxel_size) {
                 level = i;
                 break;
             }
         }
-        scalar_t coaser_size = INTERP_RATIO / resolutions[level];
-        scalar_t finer_size = INTERP_RATIO / resolutions[level + 1];
+        scalar_t coaser_size = grid_scales[level];
+        scalar_t finer_size = grid_scales[level + 1];
         layer_weight = (level == LEVELS - 1) ? 0.0f : ((level == -1) ? 1.0f : (
             (psize_val - finer_size) / (coaser_size - finer_size)));
     }
@@ -381,13 +382,16 @@ void launch_forward_layer_interp(
     // Initalize resolution & grid size table
     int res_table[LEVELS];
     int grid_table[LEVELS];
+    float scale_table[LEVELS];
     for (int i = 0; i < LEVELS; ++i) {
         int res = static_cast<int>(BASE_RESOLUTION * std::pow(PER_LEVEL_SCALE, i));
         res_table[i] = res;
         grid_table[i] = (res + 1) * (res + 1) * (res + 1);
+        scale_table[i] = INTERP_RATIO / res;
     }
     cudaMemcpyToSymbol(resolutions, res_table, sizeof(int) * LEVELS);
     cudaMemcpyToSymbol(grid_sizes, grid_table, sizeof(int) * LEVELS);
+    cudaMemcpyToSymbol(grid_scales, scale_table, sizeof(float) * LEVELS);
 
     // Launch device function
     int n_blocks = (N + INTERP_PARALLEL - 1) / INTERP_PARALLEL;
