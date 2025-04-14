@@ -111,15 +111,16 @@ def train(config: dict, args: argparse.Namespace):
     )
 
     # Lightning trainer
+    max_steps = np.ceil(config["train"]["epochs"] / get_world_size())
     trainer = Trainer(
         accelerator="gpu",
         devices="auto",
         strategy="ddp",
         # precision=16,  # mixed precision
         max_epochs=-1,
-        max_steps=np.ceil(config["train"]["epochs"] / get_world_size()),
+        max_steps=max_steps,
         logger=logger,
-        callbacks=[checkpoint_callback, StepRichProgressBar(total_steps=config["train"]["epochs"])],
+        callbacks=[checkpoint_callback, StepRichProgressBar(total_steps=max_steps)],
         log_every_n_steps=1,
     )
     
