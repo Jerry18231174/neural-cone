@@ -125,10 +125,23 @@ def get_mc_itsc(
     Monte Carlo sampling RHS intersection over bsdf
     """
     # Gather glossy interactions
+    dr.sync_device()
+    torch.cuda.synchronize()
+    t0 = time.time()
+
     indices = torch.nonzero(mask).squeeze().to(dtype=torch.int32)
     point_num = indices.shape[0]
+
+    dr.sync_device()
+    torch.cuda.synchronize()
+    t1 = time.time()
+
     indices = dr.repeat(mi.Int(indices), rhs_num)
     si_rhs: mi.SurfaceInteraction3f = dr.gather(mi.SurfaceInteraction3f, si, indices)
+
+    dr.sync_device()
+    torch.cuda.synchronize()
+    t2 = time.time()
 
     # Sample RHS interactions for glossy interactions
     r_sampler: mi.Sampler = mi.load_dict({"type": "independent"})
@@ -140,8 +153,23 @@ def get_mc_itsc(
         r_sampler.next_2d(),
         active=True,
     )
+
+    dr.sync_device()
+    torch.cuda.synchronize()
+    t3 = time.time()
+
     ray = si_rhs.spawn_ray(si_rhs.to_world(bsdf_sample.wo))
     si_bsdf_first = scene.ray_intersect(ray)
+
+    dr.sync_device()
+    torch.cuda.synchronize()
+    t4 = time.time()
+
+    # print("##### MC intersection time #####")
+    # print("indices:", t1 - t0)
+    # print("gather:", t2 - t1)
+    # print("sample:", t3 - t2)
+    # print("intersect:", t4 - t3)
 
     return si_bsdf_first, bsdf_sample, bsdf_weight
 

@@ -178,6 +178,38 @@ def remesh(scene_dir: str, surface_areas: Dict[str, float]):
     
     return None
 
+def merge_prefix(scene_dir: str) -> Dict[str, List[str]]:
+    """
+    Merge meshes with same name prefix.
+    """
+    mesh_dir = os.path.join(scene_dir, "raw_meshes")
+    merged_dir = os.path.join(scene_dir, "merged_meshes")
+    if not os.path.exists(merged_dir):
+        os.mkdir(merged_dir)
+
+    name_dict = {}
+    for file in sorted(os.listdir(mesh_dir)):
+        if file.endswith(".ply"):
+            # Remove postfix
+            name = os.path.splitext(file)[0].split("_")[0]
+            if name not in name_dict:
+                name_dict[name] = []
+            name_dict[name].append(file)
+    
+    # Merge meshes
+    for name, files in name_dict.items():
+        meshes = []
+        for file in files:
+            mesh = mi.load_dict({
+                "type": "ply",
+                "filename": os.path.join(mesh_dir, file),
+            })
+            meshes.append(mesh)
+        merged_mesh = merge_mesh(meshes)
+        merged_mesh.write_ply(os.path.join(merged_dir, name + ".ply"))
+    
+    return name_dict
+
 def gen_feature_scene(scene_dir: str):
     if not os.path.exists(os.path.join(scene_dir, "meshes")):
         raise FileNotFoundError("Remeshed meshes not found.")
@@ -235,7 +267,51 @@ def gen_remeshed_scene(scene_dir: str):
 
     return remeshed_scene
 
+def gen_merged_scene(scene_dir: str):
+    """
+    Replace shapes from original scene with merged meshes.
+    Directly modify the XML file.
+    """
+    identity_str = "1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"
+    if not os.path.exists(os.path.join(scene_dir, "raw_meshes")):
+        raise FileNotFoundError("Meshes not found.")
+    
+    # Merge meshes with same prefix
+    shape_names = merge_prefix(scene_dir)
+    shape_written = {}
+    
+    import xml.etree.ElementTree as ET
+    tree = ET.parse(os.path.join(scene_dir, "scene.xml"))
+    root = tree.getroot()
+
+    # Remove original shapes and put one without postfix
+    for shape in root.findall("shape"):
+        print("Processing shape:", shape.get("id"))
+        name = shape.get("id").split("_")[0]
+        if name not in shape_written:
+            # Change type
+            original_type = shape.get("type")
+            shape.set("type", "ply")
+            # Rename filename
+            if original_type == "ply" or original_type == "obj":
+                filename = shape.find("string")
+            else:
+                filename = ET.Element("string")
+                filename.set("name", "filename")
+                shape.append(filename)
+            filename.set("value", os.path.join("merged_meshes", name + ".ply"))
+            shape.find("transform").find("matrix").set("value", identity_str)
+            shape_written[name] = shape
+        else:
+            root.remove(shape)
+    
+    tree.write(os.path.join(scene_dir, "merged_scene.xml"))
+    merged_scene = mi.load_file(os.path.join(scene_dir, "merged_scene.xml"))
+
+    return merged_scene
+
 
 if __name__ == "__main__":
-    scene_dir = "scenes/cornell-box"
+    scene_dir = "scenes/living-room-2"
     surface_areas = meshify(scene_dir)
+    merged_scene = gen_merged_scene(scene_dir)

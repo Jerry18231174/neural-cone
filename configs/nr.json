@@ -18,7 +18,9 @@
             "interpolation": "Linear",
             "level_reduce": "Concat",
             "n_hidden_dims": 256,
-            "n_hidden_layers": 4
+            "n_hidden_layers": 4,
+            "output_activation": "None",
+            "use_tcnn": true
         }
     },
     "sample": {

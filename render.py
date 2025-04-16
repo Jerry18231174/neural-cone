@@ -3,6 +3,7 @@ import os
 import json
 import argparse
 import imgui
+import time
 
 # Computational
 import numpy as np
@@ -36,6 +37,8 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     ckpt_dir = os.path.join("out", args.scene, "checkpoints", config["model"]["name"])
     if args.model_ckpt is not None:
         ckpt_path = os.path.join(ckpt_dir, args.model_ckpt + ".ckpt")
+    elif config["model"]["name"] == "NULL":
+        ckpt_path = None
     else:
         ckpt_path, _ = find_best_ckpt(ckpt_dir, metric="loss")
 
@@ -53,6 +56,8 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             pipeline_config=config,
             scene=scene
         )
+    elif config["model"]["name"] == "NULL":
+        model = torch.nn.Module()
     print("Restoring model from", ckpt_path)
     if args.half_precision:
         model = model.half().cuda()
@@ -194,7 +199,14 @@ def render(config: dict, args: argparse.Namespace):
             imgui.tree_pop()
 
         seed = int(ui.duration * 1000)
+        # dr.sync_device()
+        # torch.cuda.synchronize()
+        # t0 = time.time()
         img = mi.render(scene, integrator=integrator, seed=seed, spp=spp).torch()
+        # dr.sync_device()
+        # torch.cuda.synchronize()
+        # t1 = time.time()
+        # print("Render time: {:.2f} ms".format((t1 - t0) * 1000))
         if save_img:
             dr.sync_device()
             torch.cuda.synchronize()

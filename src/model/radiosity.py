@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import lightning as L
+import tinycudann as tcnn
 
 from src.module.basic import ShallowMLP
 from src.module.hash_grid import MultiresHashGrid
@@ -108,15 +109,29 @@ class NeuralRadiosity(RadiosityPipeline):
 
         self.hash_grid = MultiresHashGrid(config, self.bbox, twosided=False)
 
-        self.mlp = ShallowMLP(
-            # encoding + pos + normal + wr + albedo + roughness
-            in_channels=config["n_features_per_level"] * config["n_levels"] + 3 * 4 + 1,
-            out_channels=3,
-            hidden_layers=config["n_hidden_layers"],
-            hidden_channels=config["n_hidden_dims"],
-            activation=nn.ReLU(),
-            output_activation=nn.Identity()
-        )
+        if config["use_tcnn"]:
+            network_config = {
+                "otype": "FullyFusedMLP" if config["n_hidden_dims"] <= 128 else "CutlassMLP",
+                "n_hidden_layers": config["n_hidden_layers"],
+                "n_neurons": config["n_hidden_dims"],
+                "activation": "ReLU",
+                "output_activation": config["output_activation"],
+            }
+            self.mlp = tcnn.Network(
+                n_input_dims=config["n_features_per_level"] * config["n_levels"] + 3 * 4 + 1,
+                n_output_dims=3,
+                network_config=network_config
+            )
+        else:
+            self.mlp = ShallowMLP(
+                # encoding + pos + normal + wr + albedo + roughness
+                in_channels=config["n_features_per_level"] * config["n_levels"] + 3 * 4 + 1,
+                out_channels=3,
+                hidden_layers=config["n_hidden_layers"],
+                hidden_channels=config["n_hidden_dims"],
+                activation=nn.ReLU(),
+                output_activation=nn.Identity() if config["output_activation"] == "None" else nn.Softplus()
+            )
 
     def train(self, mode: bool = True):
         """
@@ -133,20 +148,40 @@ class NeuralRadiosity(RadiosityPipeline):
         """
         Query the model with surface interaction
         """
+        dr.sync_device()
+        torch.cuda.synchronize()
+        t0 = time.time()
 
         pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
         
         # Query emission
         emission = si.emitter(scene).eval(si).torch().clone().to(device=self.device, dtype=precision)
 
+        dr.sync_device()
+        torch.cuda.synchronize()
+        t1 = time.time()
+
         # Hash grid encoding
         enc = self.hash_grid(pos)
+
+        dr.sync_device()
+        torch.cuda.synchronize()
+        t2 = time.time()
 
         # Concatenate encoding with wr_direction and roughness
         enc = torch.cat([enc, pos, dir, normal, albedo, roughness], dim=-1)
 
         # Pass through MLP
         color = torch.abs(self.mlp(enc)) + emission
+
+        dr.sync_device()
+        torch.cuda.synchronize()
+        t3 = time.time()
+
+        # print("\tNR_Preproc:\t", t1-t0)
+        # print("\tNR_HashGrid:\t", t2-t1)
+        # print("\tNR_MLP:\t\t", t3-t2)
+
 
         return color
     
@@ -217,15 +252,29 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         self.pfilt_grid = MultiresHashGrid(self.config, self.bbox, twosided=False)
         
-        self.cone_mlp = ShallowMLP(
-            # encoding + pos + normal + wr + albedo + roughness
-            in_channels=self.config["n_features_per_level"] + 3 * 2 + 1,
-            out_channels=3,
-            hidden_layers=self.config["n_hidden_layers"],
-            hidden_channels=self.config["n_hidden_dims"],
-            activation=nn.ReLU(),
-            output_activation=nn.Identity()
-        )
+        if self.config["use_tcnn"]:
+            network_config = {
+                "otype": "FullyFusedMLP" if self.config["n_hidden_dims"] <= 128 else "CutlassMLP",
+                "n_hidden_layers": self.config["n_hidden_layers"],
+                "n_neurons": self.config["n_hidden_dims"],
+                "activation": "ReLU",
+                "output_activation": self.config["output_activation"],
+            }
+            self.cone_mlp = tcnn.Network(
+                n_input_dims=self.config["n_features_per_level"] + 3 * 2 + 1,
+                n_output_dims=3,
+                network_config=network_config
+            )
+        else:
+            self.cone_mlp = ShallowMLP(
+                # encoding + pos + normal + wr + albedo + roughness
+                in_channels=self.config["n_features_per_level"] + 3 * 2 + 1,
+                out_channels=3,
+                hidden_layers=self.config["n_hidden_layers"],
+                hidden_channels=self.config["n_hidden_dims"],
+                activation=nn.ReLU(),
+                output_activation=nn.Identity() if self.config["output_activation"] == "None" else nn.Softplus()
+            )
 
         self.merge_mlp = ShallowMLP(
             in_channels=6+1,
@@ -304,8 +353,10 @@ class NeuralConeRadiosity(NeuralRadiosity):
         # [N, n_clusters]
         active = n_fix >= 1
         radius = (t_fix * tan_lobe + var_fix)[active][:, None] / 2
+        # radius = (t_fix * tan_lobe + var_fix).reshape(-1)[:, None] / 2
         # [N, n_clusters, 3: xyz]
         pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :])[active]
+        # pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :]).reshape(-1, 3)
         dr.sync_device()
         torch.cuda.synchronize()
         t51 = time.time()
@@ -318,27 +369,14 @@ class NeuralConeRadiosity(NeuralRadiosity):
             pfilt_enc,
             pos_march,
             -dir[glossy_mask][:, None, :].repeat(1, self.n_glossy_samples, 1)[active],
+            # -dir[glossy_mask].repeat(self.n_glossy_samples, 1),
             radius
         ], dim=-1)
         march_color = torch.abs(self.cone_mlp(pfilt_enc))
 
         cone_color[active] = march_color * (n_fix / self.n_glossy_rhs)[active][:, None]
+        # cone_color = march_color.reshape(-1, self.n_glossy_samples, 3) * (n_fix / self.n_glossy_rhs)[..., None]
         cone_color = torch.sum(cone_color, dim=1)
-
-        # # Glossy model inference (Loop)
-        # cone_color = torch.zeros_like(pos[glossy_mask])
-
-        # for i in range(self.n_glossy_samples):
-        #     active = n_fix[:, i] >= 1
-        #     pos_march = (pos[glossy_mask] + t_fix[:, i:i+1] * dir[glossy_mask])[active]
-        #     radius = (t_fix[:, i:i+1] * tan_lobe + var_fix[:, i:i+1])[active] / 2
-        
-        #     pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, point_size=radius)
-        #     pfilt_enc = torch.cat([pfilt_enc, pos_march, -dir[glossy_mask][active], radius], dim=-1)
-        #     march_color = torch.abs(self.cone_mlp(pfilt_enc))
-
-        #     # Update color
-        #     cone_color[active] += march_color * (n_fix[:, i:i+1] / self.n_glossy_rhs)[active]
 
         # Merge with neural radiosity
         dr.sync_device()

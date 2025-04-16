@@ -102,7 +102,7 @@ class MultiresHashGrid(nn.Module):
                 "-DBASE_RESOLUTION={}".format(self.config["base_resolution"]),
                 "-DPER_LEVEL_SCALE={}".format(self.config["per_level_scale"]),
                 "-DLAYER_REDUCE={}".format(self.config["level_reduce"].upper()),
-                "-DTHREADS=128",
+                "-DINTERP_PARALLEL=4",
             ],
             verbose=True,
         )

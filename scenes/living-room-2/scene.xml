@@ -1,0 +1,970 @@
+<scene version="3.0.0">
+	<default name="integrator" value="path" />
+	<default name="spp" value="64" />
+	<default name="resy" value="720" />
+	<default name="resx" value="1280" />
+	<default name="max_depth" value="33" />
+	<integrator type="$integrator">
+		<integer name="max_depth" value="$max_depth" />
+	</integrator>
+	<sensor type="perspective">
+		<float name="fov" value="90" />
+		<transform name="to_world">
+			<matrix value="-0.900688 -0.0159147 -0.434176 2.25009 0 0.999329 -0.0366305 1.31171 0.434467 -0.0329926 -0.900083 6.17872 0 0 0 1" />
+		</transform>
+		<sampler type="independent">
+			<integer name="sample_count" value="$spp" />
+		</sampler>
+		<film type="hdrfilm">
+			<integer name="width" value="$resx" />
+			<integer name="height" value="$resy" />
+			<string name="file_format" value="openexr" />
+			<string name="pixel_format" value="rgb" />
+			<rfilter type="tent" />
+		</film>
+	</sensor>
+	<bsdf type="twosided" id="RadioDialRedBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/radio-dial-idea.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioHandleBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.389509, 0.372589, 0.293747" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioInsideBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.015078, 0.015078, 0.015078" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioKnobBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.358375, 0.300936, 0.128617" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioMetalRingBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.640514, 0.625417, 0.580126" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioSurroundBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.066822, 0.028495, 0.013827" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="FloorBSDF">
+		<bsdf type="roughplastic">
+			<float name="alpha" value="0.15" />
+			<string name="distribution" value="beckmann" />
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<texture name="diffuse_reflectance" type="bitmap">
+				<string name="filename" value="textures/wood4.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SofaLeatherBSDF">
+		<bsdf type="roughplastic">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="0.79311, 0.79311, 0.79311" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="Cushion3BSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/cushion-purple-yellow-stripe.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="CushionBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/cushion-green-circles.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="Cushion1BSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/cushion-stripe-purple.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="LampshaderOuterBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/shade-stripes.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="LampStandBSDF">
+		<bsdf type="plastic">
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="DishesBSDF">
+		<bsdf type="plastic">
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="CeramicBSDF">
+		<bsdf type="plastic">
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="1, 1, 1" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="MagazineBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.217638, 0.217638, 0.217638" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="AppleBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/apple.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="BooksBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/book-spines.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="LoveLettersBackBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.0784314, 0.0392157, 0.0392157" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="LoveLettersBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="WhitePaintBSDF">
+		<bsdf type="roughplastic">
+			<float name="alpha" value="0.15" />
+			<string name="distribution" value="ggx" />
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="1, 1, 1" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="WallsBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.6, 0.6, 0.6" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="roughdielectric" id="TvScreenBSDF">
+		<float name="alpha" value="0.05" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<rgb name="specular_transmittance" value="0, 0, 0" />
+	</bsdf>
+	<bsdf type="dielectric" id="TvBevelBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<rgb name="specular_transmittance" value="0, 0, 0" />
+	</bsdf>
+	<bsdf type="twosided" id="BlackRaughtIronBSDF">
+		<bsdf type="roughconductor">
+			<float name="alpha" value="0.4" />
+			<string name="distribution" value="ggx" />
+			<rgb name="specular_reflectance" value="0.1, 0.1, 0.1" />
+			<rgb name="eta" value="4.3707, 3.3003, 2.99827" />
+			<rgb name="k" value="3.50068, 2.60487, 2.27319" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SmallPictureFrameBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.01, 0.01, 0.01" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="mask" id="CeilingLampshadeBSDF">
+		<rgb name="opacity" value="0.893289, 0.893289, 0.893289" />
+		<bsdf type="twosided">
+			<bsdf type="diffuse">
+				<texture name="reflectance" type="bitmap">
+					<string name="filename" value="textures/Shade-paper.jpg" />
+					<string name="filter_type" value="bilinear" />
+				</texture>
+			</bsdf>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="LightFittingBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="CeilingShadeWireBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="CarpetBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/carpet-text3b.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioPlasticBSDF">
+		<bsdf type="plastic">
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="0.64, 0.600153, 0.43449" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="PictureFrameBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="PictureBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/picture11-vert.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SmallPictureDBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/Frame.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SmallPictureABSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/Frame.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SmallPictureBBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/Frame.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SmallPictureCBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/Frame.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SocketBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="LargePictureBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/picure4-grey.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadiatorPanelsEnamelBSDF">
+		<bsdf type="roughplastic">
+			<float name="alpha" value="0.15" />
+			<string name="distribution" value="ggx" />
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="0.79311, 0.79311, 0.79311" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadiatorKnobOuterBSDF">
+		<bsdf type="roughconductor">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<rgb name="specular_reflectance" value="0.49144, 0.491304, 0.4913" />
+			<rgb name="eta" value="-0.0485226, 4.14275, 4.66977" />
+			<rgb name="k" value="-0.0363742, 0.0937665, 1.30074" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="BlindStringKnobBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="BlindStringBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="mask" id="BlindMaterialBSDF">
+		<rgb name="opacity" value="0.978132, 0.978132, 0.978132" />
+		<bsdf type="twosided">
+			<bsdf type="diffuse">
+				<rgb name="reflectance" value="1, 1, 1" />
+			</bsdf>
+		</bsdf>
+	</bsdf>
+	<bsdf type="dielectric" id="CandleHoldersBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<rgb name="specular_transmittance" value="0, 0, 0" />
+	</bsdf>
+	<bsdf type="thindielectric" id="RadioGlassBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+	</bsdf>
+	<bsdf type="twosided" id="RadioDialLineBSDF">
+		<bsdf type="conductor">
+			<string name="material" value="none" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="BushLogoBSDF">
+		<bsdf type="roughconductor">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<rgb name="specular_reflectance" value="1, 1, 1" />
+			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+			<rgb name="k" value="9.22387, 6.26952, 4.837" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="ChromeHandleBSDF">
+		<bsdf type="roughconductor">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<rgb name="specular_reflectance" value="1, 1, 1" />
+			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+			<rgb name="k" value="9.22387, 6.26952, 4.837" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="DrawerHandlesBSDF">
+		<bsdf type="roughconductor">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<rgb name="specular_reflectance" value="1, 1, 1" />
+			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+			<rgb name="k" value="9.22387, 6.26952, 4.837" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="DullSteelBSDF">
+		<bsdf type="roughconductor">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
+			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+			<rgb name="k" value="9.22387, 6.26952, 4.837" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="LampshadeInnerBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.684615, 0.684615, 0.684615" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="BlindEndsBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="BlindWoodStripBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="SteelBSDF">
+		<bsdf type="conductor">
+			<string name="material" value="none" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="dielectric" id="BlackMarbleBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<rgb name="specular_transmittance" value="0, 0, 0" />
+	</bsdf>
+	<bsdf type="twosided" id="TableLegsBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadiatorBaseBSDF">
+		<bsdf type="roughplastic">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="1, 1, 1" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadiatorKnobCentreBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioDialBackBSDF">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures/radio-dial-idea.jpg" />
+				<string name="filter_type" value="bilinear" />
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="RadioEdgesBSDF">
+		<bsdf type="roughconductor">
+			<float name="alpha" value="0.1" />
+			<string name="distribution" value="ggx" />
+			<rgb name="specular_reflectance" value="1, 1, 1" />
+			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+			<rgb name="k" value="9.22387, 6.26952, 4.837" />
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="TableBSDF">
+		<bsdf type="plastic">
+			<float name="int_ior" value="1.5" />
+			<float name="ext_ior" value="1" />
+			<boolean name="nonlinear" value="true" />
+			<rgb name="diffuse_reflectance" value="1, 1, 1" />
+		</bsdf>
+	</bsdf>
+	<shape type="ply" id="LampStand">
+		<string name="filename" value="merged_meshes/LampStand.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="LampStandBSDF" />
+	</shape>
+	<shape type="ply" id="Walls_0001">
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="WallsBSDF" />
+	<string name="filename" value="merged_meshes/Walls.ply" /></shape>
+	<shape type="ply" id="CandleHolders_0001">
+		<string name="filename" value="merged_meshes/CandleHolders.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="CandleHoldersBSDF" />
+	</shape>
+	<shape type="ply" id="Magazine">
+		<string name="filename" value="merged_meshes/Magazine.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="MagazineBSDF" />
+	</shape>
+	<shape type="ply" id="LampshadeInner">
+		<string name="filename" value="merged_meshes/LampshadeInner.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="LampshadeInnerBSDF" />
+	</shape>
+	<shape type="ply" id="Apple_0001">
+		<string name="filename" value="merged_meshes/Apple.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="AppleBSDF" />
+	</shape>
+	<shape type="ply" id="Ceramic_0001">
+		<string name="filename" value="merged_meshes/Ceramic.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="CeramicBSDF" />
+	</shape>
+	<shape type="ply" id="LoveLettersBack_0001">
+		<string name="filename" value="merged_meshes/LoveLettersBack.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="LoveLettersBackBSDF" />
+	</shape>
+	<shape type="ply" id="LoveLetters_0001">
+		<string name="filename" value="merged_meshes/LoveLetters.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="LoveLettersBSDF" />
+	</shape>
+	<shape type="ply" id="SmallPictureC">
+		<string name="filename" value="merged_meshes/SmallPictureC.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="SmallPictureCBSDF" />
+	</shape>
+	<shape type="ply" id="SmallPictureFrame_0001">
+		<string name="filename" value="merged_meshes/SmallPictureFrame.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="SmallPictureFrameBSDF" />
+	</shape>
+	<shape type="ply" id="SmallPictureB">
+		<string name="filename" value="merged_meshes/SmallPictureB.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="SmallPictureBBSDF" />
+	</shape>
+	<shape type="ply" id="SmallPictureA">
+		<string name="filename" value="merged_meshes/SmallPictureA.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="SmallPictureABSDF" />
+	</shape>
+	<shape type="ply" id="Cushion1_0001">
+		<string name="filename" value="merged_meshes/Cushion1.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="Cushion1BSDF" />
+	</shape>
+	<shape type="ply" id="LightFitting_0001">
+		<string name="filename" value="merged_meshes/LightFitting.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="LightFittingBSDF" />
+	</shape>
+	<shape type="ply" id="CeilingShadeWire">
+		<string name="filename" value="merged_meshes/CeilingShadeWire.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="CeilingShadeWireBSDF" />
+	</shape>
+	<shape type="ply" id="CeilingLampshade">
+		<string name="filename" value="merged_meshes/CeilingLampshade.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="CeilingLampshadeBSDF" />
+	</shape>
+	<shape type="ply" id="SmallPictureD">
+		<string name="filename" value="merged_meshes/SmallPictureD.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="SmallPictureDBSDF" />
+	</shape>
+	<shape type="ply" id="Books_0001">
+		<string name="filename" value="merged_meshes/Books.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="BooksBSDF" />
+	</shape>
+	<shape type="ply" id="WhitePaint_0001">
+		<string name="filename" value="merged_meshes/WhitePaint.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="WhitePaintBSDF" />
+	</shape>
+	<shape type="ply" id="DrawerHandles_0001">
+		<string name="filename" value="merged_meshes/DrawerHandles.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="DrawerHandlesBSDF" />
+	</shape>
+	<shape type="ply" id="TvBevel">
+		<string name="filename" value="merged_meshes/TvBevel.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="TvBevelBSDF" />
+	</shape>
+	<shape type="ply" id="TvScreen">
+		<string name="filename" value="merged_meshes/TvScreen.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="TvScreenBSDF" />
+	</shape>
+	<shape type="ply" id="Cushion3">
+		<string name="filename" value="merged_meshes/Cushion3.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="Cushion3BSDF" />
+	</shape>
+	<shape type="ply" id="SofaLeather_0001">
+		<string name="filename" value="merged_meshes/SofaLeather.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="SofaLeatherBSDF" />
+	</shape>
+	<shape type="ply" id="Cushion">
+		<string name="filename" value="merged_meshes/Cushion.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="CushionBSDF" />
+	</shape>
+	<shape type="ply" id="LampshaderOuter">
+		<string name="filename" value="merged_meshes/LampshaderOuter.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="LampshaderOuterBSDF" />
+	</shape>
+	<shape type="ply" id="Table_0001">
+		<string name="filename" value="merged_meshes/Table.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="TableBSDF" />
+	</shape>
+	<shape type="ply" id="Socket_0001">
+		<string name="filename" value="merged_meshes/Socket.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="SocketBSDF" />
+	</shape>
+	<shape type="ply" id="PictureFrame_0001">
+		<string name="filename" value="merged_meshes/PictureFrame.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="PictureFrameBSDF" />
+	</shape>
+	<shape type="ply" id="LargePicture">
+		<string name="filename" value="merged_meshes/LargePicture.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="LargePictureBSDF" />
+	</shape>
+	<shape type="ply" id="Picture">
+		<string name="filename" value="merged_meshes/Picture.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="PictureBSDF" />
+	</shape>
+	<shape type="ply" id="BlindStringKnob_0001">
+		<string name="filename" value="merged_meshes/BlindStringKnob.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="BlindStringKnobBSDF" />
+	</shape>
+	<shape type="ply" id="BlindString_0001">
+		<string name="filename" value="merged_meshes/BlindString.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="BlindStringBSDF" />
+	</shape>
+	<shape type="ply" id="BlindEnds_0001">
+		<string name="filename" value="merged_meshes/BlindEnds.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="BlindEndsBSDF" />
+	</shape>
+	<shape type="ply" id="BlindWoodStrip_0001">
+		<string name="filename" value="merged_meshes/BlindWoodStrip.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="BlindWoodStripBSDF" />
+	</shape>
+	<shape type="ply" id="BlindMaterial_0001">
+		<string name="filename" value="merged_meshes/BlindMaterial.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="BlindMaterialBSDF" />
+	</shape>
+	<shape type="ply" id="Steel_0001">
+		<string name="filename" value="merged_meshes/Steel.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="SteelBSDF" />
+	</shape>
+	<shape type="ply" id="BlackRaughtIron_0001">
+		<string name="filename" value="merged_meshes/BlackRaughtIron.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="BlackRaughtIronBSDF" />
+	</shape>
+	<shape type="ply" id="BlackMarble">
+		<string name="filename" value="merged_meshes/BlackMarble.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="BlackMarbleBSDF" />
+	</shape>
+	<shape type="ply" id="Floor">
+		<string name="filename" value="merged_meshes/Floor.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="FloorBSDF" />
+	</shape>
+	<shape type="ply" id="Carpet">
+		<string name="filename" value="merged_meshes/Carpet.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="CarpetBSDF" />
+	</shape>
+	<shape type="ply" id="TableLegs">
+		<string name="filename" value="merged_meshes/TableLegs.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="TableLegsBSDF" />
+	</shape>
+	<shape type="ply" id="RadiatorBase_0001">
+		<string name="filename" value="merged_meshes/RadiatorBase.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadiatorBaseBSDF" />
+	</shape>
+	<shape type="ply" id="RadiatorKnobOuter">
+		<string name="filename" value="merged_meshes/RadiatorKnobOuter.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadiatorKnobOuterBSDF" />
+	</shape>
+	<shape type="ply" id="RadiatorKnobCentre">
+		<string name="filename" value="merged_meshes/RadiatorKnobCentre.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadiatorKnobCentreBSDF" />
+	</shape>
+	<shape type="ply" id="RadiatorPanelsEnamel_0001">
+		<string name="filename" value="merged_meshes/RadiatorPanelsEnamel.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadiatorPanelsEnamelBSDF" />
+	</shape>
+	<shape type="ply" id="Dishes_0001">
+		<string name="filename" value="merged_meshes/Dishes.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="DishesBSDF" />
+	</shape>
+	<shape type="ply" id="DullSteel">
+		<string name="filename" value="merged_meshes/DullSteel.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="DullSteelBSDF" />
+	</shape>
+	<shape type="ply" id="RadioHandle">
+		<string name="filename" value="merged_meshes/RadioHandle.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioHandleBSDF" />
+	</shape>
+	<shape type="ply" id="RadioPlastic_0001">
+		<string name="filename" value="merged_meshes/RadioPlastic.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioPlasticBSDF" />
+	</shape>
+	<shape type="ply" id="BushLogo_0001">
+		<string name="filename" value="merged_meshes/BushLogo.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="BushLogoBSDF" />
+	</shape>
+	<shape type="ply" id="RadioDialLine">
+		<string name="filename" value="merged_meshes/RadioDialLine.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<boolean name="face_normals" value="true" />
+		<ref id="RadioDialLineBSDF" />
+	</shape>
+	<shape type="ply" id="RadioDialBack">
+		<string name="filename" value="merged_meshes/RadioDialBack.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioDialBackBSDF" />
+	</shape>
+	<shape type="ply" id="RadioDialRed">
+		<string name="filename" value="merged_meshes/RadioDialRed.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioDialRedBSDF" />
+	</shape>
+	<shape type="ply" id="RadioMetalRing">
+		<string name="filename" value="merged_meshes/RadioMetalRing.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioMetalRingBSDF" />
+	</shape>
+	<shape type="ply" id="RadioGlass">
+		<string name="filename" value="merged_meshes/RadioGlass.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioGlassBSDF" />
+	</shape>
+	<shape type="ply" id="ChromeHandle">
+		<string name="filename" value="merged_meshes/ChromeHandle.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="ChromeHandleBSDF" />
+	</shape>
+	<shape type="ply" id="RadioInside">
+		<string name="filename" value="merged_meshes/RadioInside.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioInsideBSDF" />
+	</shape>
+	<shape type="ply" id="RadioKnob">
+		<string name="filename" value="merged_meshes/RadioKnob.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioKnobBSDF" />
+	</shape>
+	<shape type="ply" id="RadioSurround">
+		<string name="filename" value="merged_meshes/RadioSurround.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioSurroundBSDF" />
+	</shape>
+	<shape type="ply" id="RadioEdges_0001">
+		<string name="filename" value="merged_meshes/RadioEdges.ply" />
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<ref id="RadioEdgesBSDF" />
+	</shape>
+	<shape type="ply" id="Light1">
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<bsdf type="twosided">
+			<bsdf type="diffuse">
+				<rgb name="reflectance" value="0, 0, 0" />
+			</bsdf>
+		</bsdf>
+		<emitter type="area">
+			<rgb name="radiance" value="13.748, 13.748, 13.748" />
+		</emitter>
+	<string name="filename" value="merged_meshes/Light1.ply" /></shape>
+	<shape type="ply" id="Light2">
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<bsdf type="twosided">
+			<bsdf type="diffuse">
+				<rgb name="reflectance" value="0, 0, 0" />
+			</bsdf>
+		</bsdf>
+		<emitter type="area">
+			<rgb name="radiance" value="17.777, 17.777, 17.777" />
+		</emitter>
+	<string name="filename" value="merged_meshes/Light2.ply" /></shape>
+	<shape type="ply" id="Light3">
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<bsdf type="twosided">
+			<bsdf type="diffuse">
+				<rgb name="reflectance" value="0, 0, 0" />
+			</bsdf>
+		</bsdf>
+		<emitter type="area">
+			<rgb name="radiance" value="17.777, 17.777, 17.777" />
+		</emitter>
+	<string name="filename" value="merged_meshes/Light3.ply" /></shape>
+	<shape type="ply" id="Light4">
+		<transform name="to_world">
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+		</transform>
+		<bsdf type="twosided">
+			<bsdf type="diffuse">
+				<rgb name="reflectance" value="0, 0, 0" />
+			</bsdf>
+		</bsdf>
+		<emitter type="area">
+			<rgb name="radiance" value="1.08059, 1.08059, 1.08059" />
+		</emitter>
+	<string name="filename" value="merged_meshes/Light4.ply" /></shape>
+</scene>

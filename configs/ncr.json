@@ -21,7 +21,9 @@
             "interpolation": "Linear",
             "level_reduce": "Concat",
             "n_hidden_dims": 128,
-            "n_hidden_layers": 3
+            "n_hidden_layers": 3,
+            "output_activation": "Squareplus",
+            "use_tcnn": true
         },
         "cone": {
             "name": "HashGrid",
@@ -33,7 +35,9 @@
             "interpolation": "Linear",
             "level_reduce": "Interp",
             "n_hidden_dims": 64,
-            "n_hidden_layers": 2
+            "n_hidden_layers": 2,
+            "output_activation": "Squareplus",
+            "use_tcnn": true
         },
         "sdf": {
             "name": "Grid",
