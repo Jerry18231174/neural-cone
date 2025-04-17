@@ -139,6 +139,17 @@ def get_mc_itsc(
     indices = dr.repeat(mi.Int(indices), rhs_num)
     si_rhs: mi.SurfaceInteraction3f = dr.gather(mi.SurfaceInteraction3f, si, indices)
 
+    # si_rhs = mi.SurfaceInteraction3f(si)
+    # si_rhs.p = dr.gather(mi.Point3f, si.p, indices)
+    # si_rhs.wi = dr.gather(mi.Vector3f, si.wi, indices)
+    # n_rhs = dr.gather(mi.Vector3f, si.sh_frame.n, indices)
+    # si_rhs.n = n_rhs
+    # si_rhs.sh_frame.n = n_rhs
+    # si_rhs.sh_frame.s = dr.gather(mi.Vector3f, si.sh_frame.s, indices)
+    # si_rhs.sh_frame.t = dr.gather(mi.Vector3f, si.sh_frame.t, indices)
+    # si_rhs.shape = dr.gather(mi.ShapePtr, si.shape, indices)
+    # si_rhs.uv = dr.gather(mi.Point2f, si.uv, indices)
+
     dr.sync_device()
     torch.cuda.synchronize()
     t2 = time.time()

@@ -79,6 +79,9 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     albedo_integrator = mi.load_dict({
         "type": "albedo"
     })
+    normal_integrator = mi.load_dict({
+        "type": "normal"
+    })
 
     width, height = params['PerspectiveCamera.film.size'].numpy()
     x_fov = params['PerspectiveCamera.x_fov'].numpy()[0]
@@ -96,6 +99,7 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             "path": path_integrator,
             "depth": depth_integrator,
             "albedo": albedo_integrator,
+            "normal": normal_integrator,
         },
         "camera": camera,
     }
@@ -112,6 +116,7 @@ def render(config: dict, args: argparse.Namespace):
     path_integrator = render_vars["integrators"]["path"]
     depth_integrator = render_vars["integrators"]["depth"]
     albedo_integrator = render_vars["integrators"]["albedo"]
+    normal_integrator = render_vars["integrators"]["normal"]
     camera: FPSCamera = render_vars["camera"]
     width, height = camera.width, camera.height
 
@@ -138,7 +143,7 @@ def render(config: dict, args: argparse.Namespace):
         if imgui.tree_node("Render Options", imgui.TREE_NODE_DEFAULT_OPEN):
 
             _, int_type = imgui.combo("Integrator", int_type, [
-                                    "Path", "LHS", "RHS", "Depth", "Albedo"])
+                                    "Path", "LHS", "RHS", "Depth", "Albedo", "Normal"])
             _, slider_spp = imgui.slider_int("SPP", slider_spp, 1, 16)
 
             if int_type == 0:
@@ -162,6 +167,9 @@ def render(config: dict, args: argparse.Namespace):
                 spp = slider_spp
             elif int_type == 4:
                 integrator = albedo_integrator
+                spp = slider_spp
+            elif int_type == 5:
+                integrator = normal_integrator
                 spp = slider_spp
 
             _, use_antialiasing = imgui.checkbox(
