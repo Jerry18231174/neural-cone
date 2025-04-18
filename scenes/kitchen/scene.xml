@@ -23,282 +23,218 @@
 			<rfilter type="tent" />
 		</film>
 	</sensor>
-	<bsdf type="twosided" id="ChromeHandleBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.64, 0.64, 0.64" />
-		</bsdf>
+	<bsdf type="diffuse" id="ChromeHandleBSDF">
+		<rgb name="reflectance" value="0.64, 0.64, 0.64" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioHandleBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.389509, 0.372589, 0.293747" />
-		</bsdf>
+	<bsdf type="diffuse" id="RadioHandleBSDF">
+		<rgb name="reflectance" value="0.389509, 0.372589, 0.293747" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioInsideBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.015078, 0.015078, 0.015078" />
-		</bsdf>
+	<bsdf type="diffuse" id="RadioInsideBSDF">
+		<rgb name="reflectance" value="0.015078, 0.015078, 0.015078" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioKnobBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.358375, 0.300936, 0.128617" />
-		</bsdf>
+	<bsdf type="diffuse" id="RadioKnobBSDF">
+		<rgb name="reflectance" value="0.358375, 0.300936, 0.128617" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioPlasticBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.64, 0.600153, 0.43449" />
-		</bsdf>
+	<bsdf type="diffuse" id="RadioPlasticBSDF">
+		<rgb name="reflectance" value="0.64, 0.600153, 0.43449" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioSurroundBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.066822, 0.028495, 0.013827" />
-		</bsdf>
+	<bsdf type="diffuse" id="RadioSurroundBSDF">
+		<rgb name="reflectance" value="0.066822, 0.028495, 0.013827" />
 	</bsdf>
-	<bsdf type="twosided" id="SteelPotBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
-			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
-			<rgb name="k" value="9.22387, 6.26952, 4.837" />
-		</bsdf>
+	<bsdf type="roughconductor" id="SteelPotBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
+		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+		<rgb name="k" value="9.22387, 6.26952, 4.837" />
 	</bsdf>
-	<bsdf type="twosided" id="KettleGreenBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.0399472, 0.14198, 0.0033027" />
-		</bsdf>
+	<bsdf type="roughplastic" id="KettleGreenBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.0399472, 0.14198, 0.0033027" />
 	</bsdf>
 	<bsdf type="thindielectric" id="RadioGlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 	</bsdf>
-	<bsdf type="twosided" id="UtensilsBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.05" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
+	<bsdf type="roughconductor" id="UtensilsBSDF">
+		<float name="alpha" value="0.05" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
 	</bsdf>
-	<bsdf type="twosided" id="MetalHandlesBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.075" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="0.510193, 0.510193, 0.510193" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
+	<bsdf type="roughconductor" id="MetalHandlesBSDF">
+		<float name="alpha" value="0.075" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="0.510193, 0.510193, 0.510193" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
 	</bsdf>
-	<bsdf type="twosided" id="SmallWorktopBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.04" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<texture name="diffuse_reflectance" type="bitmap">
-				<string name="filename" value="textures/Worktopt-light.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="roughplastic" id="SmallWorktopBSDF">
+		<float name="alpha" value="0.04" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<texture name="diffuse_reflectance" type="bitmap">
+			<string name="filename" value="textures/Worktopt-light.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="ExtractorHoodBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.08" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
+	<bsdf type="roughconductor" id="ExtractorHoodBSDF">
+		<float name="alpha" value="0.01" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
 	</bsdf>
-	<bsdf type="twosided" id="WallsBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="1, 1, 1" />
-		</bsdf>
+	<bsdf type="diffuse" id="WallsBSDF">
+		<rgb name="reflectance" value="1, 1, 1" />
 	</bsdf>
-	<bsdf type="twosided" id="PlatesBSDF">
-		<bsdf type="plastic">
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
-		</bsdf>
+	<bsdf type="plastic" id="PlatesBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
 	</bsdf>
 	<bsdf type="dielectric" id="WineGlassesBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 	</bsdf>
-	<bsdf type="twosided" id="TabletopBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.025" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<texture name="diffuse_reflectance" type="bitmap">
-				<string name="filename" value="textures/Tabletop-light.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="roughplastic" id="TabletopBSDF">
+		<float name="alpha" value="0.025" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<texture name="diffuse_reflectance" type="bitmap">
+			<string name="filename" value="textures/Tabletop-light.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="ChoppingBoardBSDF">
-		<bsdf type="diffuse">
-			<texture name="reflectance" type="bitmap">
-				<string name="filename" value="textures/Chopping-Board.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="diffuse" id="ChoppingBoardBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/Chopping-Board.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="CupboardUnitsBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.547857, 0.547857, 0.547857" />
-		</bsdf>
+	<bsdf type="diffuse" id="CupboardUnitsBSDF">
+		<rgb name="reflectance" value="0.547857, 0.547857, 0.547857" />
 	</bsdf>
-	<bsdf type="twosided" id="BookCoverBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.0805638, 0.081309, 0.0801467" />
-		</bsdf>
+	<bsdf type="diffuse" id="BookCoverBSDF">
+		<rgb name="reflectance" value="0.0805638, 0.081309, 0.0801467" />
 	</bsdf>
-	<bsdf type="twosided" id="LeftPageBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.05" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<texture name="diffuse_reflectance" type="bitmap">
-				<string name="filename" value="textures/Kitchen-book-leftpage.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="roughplastic" id="LeftPageBSDF">
+		<float name="alpha" value="0.05" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<texture name="diffuse_reflectance" type="bitmap">
+			<string name="filename" value="textures/Kitchen-book-leftpage.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="BookPagesBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.05" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<texture name="diffuse_reflectance" type="bitmap">
-				<string name="filename" value="textures/Kitchen-bookpage-large.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="roughplastic" id="BookPagesBSDF">
+		<float name="alpha" value="0.05" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<texture name="diffuse_reflectance" type="bitmap">
+			<string name="filename" value="textures/Kitchen-bookpage-large.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="CarrotsBSDF">
-		<bsdf type="diffuse">
-			<texture name="reflectance" type="bitmap">
-				<string name="filename" value="textures/Kitchen-carrot-uv.png" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="diffuse" id="CarrotsBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/Kitchen-carrot-uv.png" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="TomatoesBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.592438, 0, 0.00293232" />
-		</bsdf>
+	<bsdf type="roughplastic" id="TomatoesBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.592438, 0, 0.00293232" />
 	</bsdf>
-	<bsdf type="twosided" id="Pepper-GreenBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.0302565, 0.197516, 0" />
-		</bsdf>
+	<bsdf type="roughplastic" id="Pepper-GreenBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.0302565, 0.197516, 0" />
 	</bsdf>
-	<bsdf type="twosided" id="Pepper-YellowBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="1, 0.20471, 0" />
-		</bsdf>
+	<bsdf type="roughplastic" id="Pepper-YellowBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="1, 0.20471, 0" />
 	</bsdf>
-	<bsdf type="twosided" id="Pepper-RedBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.476177, 0, 0" />
-		</bsdf>
+	<bsdf type="roughplastic" id="Pepper-RedBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.476177, 0, 0" />
 	</bsdf>
-	<bsdf type="twosided" id="MushroomsBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.300837, 0.281435, 0.243189" />
-		</bsdf>
+	<bsdf type="diffuse" id="MushroomsBSDF">
+		<rgb name="reflectance" value="0.300837, 0.281435, 0.243189" />
 	</bsdf>
-	<bsdf type="twosided" id="SlicedMushromsBSDF">
-		<bsdf type="diffuse">
-			<texture name="reflectance" type="bitmap">
-				<string name="filename" value="textures/Kitchen-mushroom-texture.png" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="diffuse" id="SlicedMushromsBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/Kitchen-mushroom-texture.png" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="ChoppingKnifeBladeBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.02" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
+	<bsdf type="roughconductor" id="ChoppingKnifeBladeBSDF">
+		<float name="alpha" value="0.02" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
 	</bsdf>
-	<bsdf type="twosided" id="ChoppingKnifeHandleBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.028991, 0.028991, 0.028991" />
-		</bsdf>
+	<bsdf type="roughplastic" id="ChoppingKnifeHandleBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.028991, 0.028991, 0.028991" />
 	</bsdf>
-	<bsdf type="twosided" id="ChoppingKnifeEdgeBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
-			<rgb name="k" value="9.22387, 6.26952, 4.837" />
-		</bsdf>
+	<bsdf type="roughconductor" id="ChoppingKnifeEdgeBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+		<rgb name="k" value="9.22387, 6.26952, 4.837" />
 	</bsdf>
-	<bsdf type="twosided" id="WhitePotBSDF">
-		<bsdf type="plastic">
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
-		</bsdf>
+	<bsdf type="plastic" id="WhitePotBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
 	</bsdf>
-	<bsdf type="twosided" id="WorktopsBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<texture name="diffuse_reflectance" type="bitmap">
-				<string name="filename" value="textures/Worktopt-light.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="roughplastic" id="WorktopsBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<texture name="diffuse_reflectance" type="bitmap">
+			<string name="filename" value="textures/Worktopt-light.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
 	<bsdf type="twosided" id="TowelBSDF">
 		<bsdf type="diffuse">
@@ -308,393 +244,297 @@
 			</texture>
 		</bsdf>
 	</bsdf>
-	<bsdf type="twosided" id="TilesBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.394083, 0.325037, 0.263175" />
-		</bsdf>
+	<bsdf type="diffuse" id="TilesBSDF">
+		<rgb name="reflectance" value="0.394083, 0.325037, 0.263175" />
 	</bsdf>
-	<bsdf type="twosided" id="WallSocketBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.571765, 0.563535, 0.559972" />
-		</bsdf>
+	<bsdf type="diffuse" id="WallSocketBSDF">
+		<rgb name="reflectance" value="0.571765, 0.563535, 0.559972" />
 	</bsdf>
-	<bsdf type="twosided" id="CookerBlackBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.08" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.015396, 0.015396, 0.015396" />
-		</bsdf>
+	<bsdf type="roughplastic" id="CookerBlackBSDF">
+		<float name="alpha" value="0.08" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.015396, 0.015396, 0.015396" />
 	</bsdf>
-	<bsdf type="twosided" id="CookerIronBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.02" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.001373, 0.001373, 0.001373" />
-		</bsdf>
+	<bsdf type="roughplastic" id="CookerIronBSDF">
+		<float name="alpha" value="0.02" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.001373, 0.001373, 0.001373" />
 	</bsdf>
 	<bsdf type="dielectric" id="CookerGlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<rgb name="specular_transmittance" value="0, 0, 0" />
 	</bsdf>
-	<bsdf type="twosided" id="CookerChromeBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
+	<bsdf type="roughconductor" id="CookerChromeBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
 	</bsdf>
-	<bsdf type="twosided" id="BushLogoBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
-			<rgb name="k" value="9.22387, 6.26952, 4.837" />
-		</bsdf>
+	<bsdf type="roughconductor" id="BushLogoBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+		<rgb name="k" value="9.22387, 6.26952, 4.837" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioMetalRingBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
+	<bsdf type="roughconductor" id="RadioMetalRingBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioDialBackBSDF">
-		<bsdf type="diffuse">
-			<texture name="reflectance" type="bitmap">
-				<string name="filename" value="textures/radio-dial-idea.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="diffuse" id="RadioDialBackBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/radio-dial-idea.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="RadioDialLineBSDF">
-		<bsdf type="conductor">
-			<string name="material" value="none" />
-		</bsdf>
+	<bsdf type="conductor" id="RadioDialLineBSDF">
+		<string name="material" value="none" />
 	</bsdf>
 	<bsdf type="dielectric" id="MicrowaveGlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<rgb name="specular_transmittance" value="0, 0, 0" />
 	</bsdf>
-	<bsdf type="twosided" id="MicrowaveBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
-			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
-			<rgb name="k" value="9.22387, 6.26952, 4.837" />
-		</bsdf>
+	<bsdf type="roughconductor" id="MicrowaveBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
+		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+		<rgb name="k" value="9.22387, 6.26952, 4.837" />
 	</bsdf>
-	<bsdf type="twosided" id="MicrowaveBackBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
-			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
-			<rgb name="k" value="9.22387, 6.26952, 4.837" />
-		</bsdf>
+	<bsdf type="roughconductor" id="MicrowaveBackBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
+		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+		<rgb name="k" value="9.22387, 6.26952, 4.837" />
 	</bsdf>
 	<bsdf type="dielectric" id="MicrowaveDigitalBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<rgb name="specular_transmittance" value="0, 0, 0" />
 	</bsdf>
-	<bsdf type="twosided" id="WindowFrameBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.572423, 0.572423, 0.572423" />
-		</bsdf>
+	<bsdf type="diffuse" id="WindowFrameBSDF">
+		<rgb name="reflectance" value="0.572423, 0.572423, 0.572423" />
 	</bsdf>
 	<bsdf type="mask" id="BlindsBSDF">
 		<rgb name="opacity" value="0.612066, 0.612066, 0.612066" />
-		<bsdf type="twosided">
-			<bsdf type="diffuse">
-				<rgb name="reflectance" value="0.612066, 0.499505, 0.378676" />
-			</bsdf>
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="BlindStringKnobBSDF">
 		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+			<rgb name="reflectance" value="0.612066, 0.499505, 0.378676" />
 		</bsdf>
 	</bsdf>
-	<bsdf type="twosided" id="BlindStringBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.217638, 0.217638, 0.217638" />
-		</bsdf>
+	<bsdf type="diffuse" id="BlindStringKnobBSDF">
+		<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
 	</bsdf>
-	<bsdf type="twosided" id="WindowLockBSDF">
-		<bsdf type="conductor">
-			<string name="material" value="none" />
-		</bsdf>
+	<bsdf type="diffuse" id="BlindStringBSDF">
+		<rgb name="reflectance" value="0.217638, 0.217638, 0.217638" />
 	</bsdf>
-	<bsdf type="twosided" id="TableMatsBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.047366, 0.047366, 0.047366" />
-		</bsdf>
+	<bsdf type="conductor" id="WindowLockBSDF">
+		<string name="material" value="none" />
 	</bsdf>
-	<bsdf type="twosided" id="CutleryBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
+	<bsdf type="diffuse" id="TableMatsBSDF">
+		<rgb name="reflectance" value="0.047366, 0.047366, 0.047366" />
 	</bsdf>
-	<bsdf type="twosided" id="HomeBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
-		</bsdf>
+	<bsdf type="roughconductor" id="CutleryBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
+	</bsdf>
+	<bsdf type="diffuse" id="HomeBSDF">
+		<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
 	</bsdf>
 	<bsdf type="bumpmap">
 		<texture name="map" type="bitmap">
 			<string name="filename" value="textures/cushion-bump.jpg" />
 			<string name="filter_type" value="bilinear" />
 		</texture>
-		<bsdf type="twosided" id="Cushion1BSDF">
-			<bsdf type="diffuse">
-				<texture name="reflectance" type="bitmap">
-					<string name="filename" value="textures/cushion-red.jpg" />
-					<string name="filter_type" value="bilinear" />
-				</texture>
-			</bsdf>
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="TableCrossBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.612066, 0.612066, 0.612066" />
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="PotHandlesBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.00631, 0.00631, 0.00631" />
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="KettleBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.05" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="KettleHandleBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.00631, 0.00631, 0.00631" />
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="BurnersBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
-			<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
-			<rgb name="k" value="9.22387, 6.26952, 4.837" />
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="BurnersTopBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.00631, 0.00631, 0.00631" />
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="BreadBinHandleBSDF">
-		<bsdf type="roughconductor">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<rgb name="specular_reflectance" value="1, 1, 1" />
-			<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
-			<rgb name="k" value="5.20643, 4.23136, 3.75495" />
-		</bsdf>
-	</bsdf>
-	<bsdf type="bumpmap">
-		<texture name="map" type="bitmap">
-			<string name="filename" value="textures/bread-bin-front-bump.png" />
-			<string name="filter_type" value="bilinear" />
-		</texture>
-		<bsdf type="twosided" id="BreadBinFrontBSDF">
-			<bsdf type="diffuse">
-				<texture name="reflectance" type="bitmap">
-					<string name="filename" value="textures/Worktopt-light.jpg" />
-					<string name="filter_type" value="bilinear" />
-				</texture>
-			</bsdf>
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="BreadBinSidesBSDF">
-		<bsdf type="diffuse">
-			<texture name="reflectance" type="bitmap">
-				<string name="filename" value="textures/Worktopt-light.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="BreadBinTopBSDF">
-		<bsdf type="diffuse">
-			<texture name="reflectance" type="bitmap">
-				<string name="filename" value="textures/Worktopt-light.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="WoodTopBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<texture name="diffuse_reflectance" type="bitmap">
-				<string name="filename" value="textures/Tabletop-light.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
-	</bsdf>
-	<bsdf type="twosided" id="CushionTiesBSDF">
-		<bsdf type="diffuse">
+		<bsdf type="diffuse" id="Cushion1BSDF">
 			<texture name="reflectance" type="bitmap">
 				<string name="filename" value="textures/cushion-red.jpg" />
 				<string name="filter_type" value="bilinear" />
 			</texture>
 		</bsdf>
 	</bsdf>
-	<bsdf type="twosided" id="CableBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.612066, 0.612066, 0.612066" />
-		</bsdf>
+	<bsdf type="roughplastic" id="TableCrossBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.612066, 0.612066, 0.612066" />
 	</bsdf>
-	<bsdf type="twosided" id="CeilingLightFittingBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
-		</bsdf>
+	<bsdf type="roughplastic" id="PotHandlesBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.00631, 0.00631, 0.00631" />
 	</bsdf>
-	<bsdf type="twosided" id="FloorBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<texture name="diffuse_reflectance" type="bitmap">
-				<string name="filename" value="textures/wood.jpg" />
-				<string name="filter_type" value="bilinear" />
-			</texture>
-		</bsdf>
+	<bsdf type="roughconductor" id="KettleBSDF">
+		<float name="alpha" value="0.05" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
 	</bsdf>
-	<bsdf type="twosided" id="CeilingBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.612066, 0.612066, 0.612066" />
-		</bsdf>
+	<bsdf type="roughplastic" id="KettleHandleBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.00631, 0.00631, 0.00631" />
 	</bsdf>
-	<bsdf type="twosided" id="MushroomEndsBSDF">
-		<bsdf type="diffuse">
+	<bsdf type="roughconductor" id="BurnersBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="0.578596, 0.578596, 0.578596" />
+		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
+		<rgb name="k" value="9.22387, 6.26952, 4.837" />
+	</bsdf>
+	<bsdf type="roughplastic" id="BurnersTopBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.00631, 0.00631, 0.00631" />
+	</bsdf>
+	<bsdf type="roughconductor" id="BreadBinHandleBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="4.36968, 2.9167, 1.6547" />
+		<rgb name="k" value="5.20643, 4.23136, 3.75495" />
+	</bsdf>
+	<bsdf type="bumpmap">
+		<texture name="map" type="bitmap">
+			<string name="filename" value="textures/bread-bin-front-bump.png" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
+		<bsdf type="diffuse" id="BreadBinFrontBSDF">
 			<texture name="reflectance" type="bitmap">
-				<string name="filename" value="textures/Kitchen-mushroom-texture.png" />
+				<string name="filename" value="textures/Worktopt-light.jpg" />
 				<string name="filter_type" value="bilinear" />
 			</texture>
 		</bsdf>
 	</bsdf>
-	<bsdf type="twosided" id="PepperStemsBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.136099, 0.284452, 0.00552174" />
-		</bsdf>
+	<bsdf type="diffuse" id="BreadBinSidesBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/Worktopt-light.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="BulbBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0, 0, 0" />
-		</bsdf>
+	<bsdf type="diffuse" id="BreadBinTopBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/Worktopt-light.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="GroutBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.79311, 0.79311, 0.79311" />
-		</bsdf>
+	<bsdf type="roughplastic" id="WoodTopBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<texture name="diffuse_reflectance" type="bitmap">
+			<string name="filename" value="textures/Tabletop-light.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="LampCableBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.479179, 0.479179, 0.479179" />
-		</bsdf>
+	<bsdf type="diffuse" id="CushionTiesBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/cushion-red.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="LampBSDF">
-		<bsdf type="roughplastic">
-			<float name="alpha" value="0.1" />
-			<string name="distribution" value="ggx" />
-			<float name="int_ior" value="1.5" />
-			<float name="ext_ior" value="1" />
-			<boolean name="nonlinear" value="true" />
-			<rgb name="diffuse_reflectance" value="0.541798, 0.297653, 0.0528416" />
-		</bsdf>
+	<bsdf type="roughplastic" id="CableBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.612066, 0.612066, 0.612066" />
 	</bsdf>
-	<bsdf type="twosided" id="LampInsideBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
-		</bsdf>
+	<bsdf type="roughplastic" id="CeilingLightFittingBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.578596, 0.578596, 0.578596" />
 	</bsdf>
-	<bsdf type="twosided" id="WindowBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.571765, 0.563535, 0.559972" />
-		</bsdf>
+	<bsdf type="roughplastic" id="FloorBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<texture name="diffuse_reflectance" type="bitmap">
+			<string name="filename" value="textures/wood.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="SkirtingBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.578913, 0.578913, 0.578913" />
-		</bsdf>
+	<bsdf type="diffuse" id="CeilingBSDF">
+		<rgb name="reflectance" value="0.612066, 0.612066, 0.612066" />
 	</bsdf>
-	<bsdf type="twosided" id="BlindEndsBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.047366, 0.047366, 0.047366" />
-		</bsdf>
+	<bsdf type="diffuse" id="MushroomEndsBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/Kitchen-mushroom-texture.png" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
 	</bsdf>
-	<bsdf type="twosided" id="BlindWoodStripBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
-		</bsdf>
+	<bsdf type="diffuse" id="PepperStemsBSDF">
+		<rgb name="reflectance" value="0.136099, 0.284452, 0.00552174" />
 	</bsdf>
-	<bsdf type="twosided" id="RadioEdgesBSDF">
-		<bsdf type="conductor">
-			<string name="material" value="none" />
-		</bsdf>
+	<bsdf type="diffuse" id="BulbBSDF">
+		<rgb name="reflectance" value="0, 0, 0" />
+	</bsdf>
+	<bsdf type="diffuse" id="GroutBSDF">
+		<rgb name="reflectance" value="0.79311, 0.79311, 0.79311" />
+	</bsdf>
+	<bsdf type="diffuse" id="LampCableBSDF">
+		<rgb name="reflectance" value="0.479179, 0.479179, 0.479179" />
+	</bsdf>
+	<bsdf type="roughplastic" id="LampBSDF">
+		<float name="alpha" value="0.1" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.541798, 0.297653, 0.0528416" />
+	</bsdf>
+	<bsdf type="diffuse" id="LampInsideBSDF">
+		<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+	</bsdf>
+	<bsdf type="diffuse" id="WindowBSDF">
+		<rgb name="reflectance" value="0.571765, 0.563535, 0.559972" />
+	</bsdf>
+	<bsdf type="diffuse" id="SkirtingBSDF">
+		<rgb name="reflectance" value="0.578913, 0.578913, 0.578913" />
+	</bsdf>
+	<bsdf type="diffuse" id="BlindEndsBSDF">
+		<rgb name="reflectance" value="0.047366, 0.047366, 0.047366" />
+	</bsdf>
+	<bsdf type="diffuse" id="BlindWoodStripBSDF">
+		<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
+	</bsdf>
+	<bsdf type="conductor" id="RadioEdgesBSDF">
+		<string name="material" value="none" />
 	</bsdf>
 	<shape type="ply" id="WallSocket_0001">
 		<string name="filename" value="merged_meshes/WallSocket.ply" />

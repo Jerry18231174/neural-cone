@@ -319,7 +319,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
 
         # Mask & indices for glossy materials
-        glossy_mask = ((roughness < 0.5) & (roughness > 0.01)).squeeze()
+        glossy_mask = ((roughness < 0.5) & (roughness > 0.001)).squeeze()
 
         if not glossy_mask.any():
             return color
