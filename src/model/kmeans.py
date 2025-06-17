@@ -27,8 +27,14 @@ class KMeans:
             sources=[
                 os.path.join(current_dir, "kmeans_cuda", "kmeans1d_bindings.cpp"),
                 os.path.join(current_dir, "kmeans_cuda", "kmeans1d_cuda.cu")],
-            extra_cflags=['-O3'],
-            extra_cuda_cflags=["-O3", "-g", "-lineinfo", "-Xcompiler", "-rdynamic"],
+            extra_cflags=[
+                '-O3',
+                "-DN_CLUSTERS={}".format(self.n_clusters)
+            ],
+            extra_cuda_cflags=[
+                "-O3", "-g", "-lineinfo", "-Xcompiler", "-rdynamic",
+                "-DN_CLUSTERS={}".format(self.n_clusters)
+            ],
             verbose=True,
         )
 
@@ -46,7 +52,7 @@ class KMeans:
             torch.Tensor: Standard deviation of each cluster of shape (N, n_clusters).
         """
         if self.use_kernel:
-            return self.cuda_kernel.kmeans1d(t, self.n_clusters, self.n_iter)
+            return self.cuda_kernel.kmeans1d(t, self.n_iter)
         N = t.shape[0]
         inf_mask = torch.isinf(t)
         t_fill0 = t.masked_fill(inf_mask, 0)

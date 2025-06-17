@@ -45,6 +45,12 @@ def tan_ggx_lobe(alpha: torch.Tensor, k: float = 0.5) -> torch.Tensor:
     return numer / denom
 
 
+def get_time():
+    dr.sync_device()
+    torch.cuda.synchronize()
+    return time.time()
+
+
 class RadiosityPipeline(L.LightningModule):
     """
     Radiosity pipeline
@@ -148,35 +154,24 @@ class NeuralRadiosity(RadiosityPipeline):
         """
         Query the model with surface interaction
         """
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t0 = time.time()
+        t0 = get_time()
 
         pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
-        
-        # Query emission
-        emission = si.emitter(scene).eval(si).torch().clone().to(device=self.device, dtype=precision)
 
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t1 = time.time()
+        t1 = get_time()
 
         # Hash grid encoding
         enc = self.hash_grid(pos)
 
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t2 = time.time()
+        t2 = get_time()
 
         # Concatenate encoding with wr_direction and roughness
         enc = torch.cat([enc, pos, dir, normal, albedo, roughness], dim=-1)
 
         # Pass through MLP
-        color = torch.abs(self.mlp(enc)) + emission
+        color = torch.abs(self.mlp(enc)).to(dtype=precision)
 
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t3 = time.time()
+        t3 = get_time()
 
         # print("\tNR_Preproc:\t", t1-t0)
         # print("\tNR_HashGrid:\t", t2-t1)
@@ -247,7 +242,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         
         self.kMeans = KMeans(
             n_clusters=self.n_glossy_samples,
-            n_iter=3
+            n_iter=config["n_kmeans_iter"]
         )
 
         self.pfilt_grid = MultiresHashGrid(self.config, self.bbox, twosided=False)
@@ -308,47 +303,36 @@ class NeuralConeRadiosity(NeuralRadiosity):
         """
         Query the model with surface interaction
         """
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t0 = time.time()
+        dr.eval(si)
+        t0 = get_time()
+
+        # Get color from neural radiosity
         color = super().query_model(si, scene, precision=precision)
 
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t1 = time.time()
+        t1 = get_time()
         pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
 
         # Mask & indices for glossy materials
-        glossy_mask = ((roughness < 0.5) & (roughness > 0.001)).squeeze()
+        glossy_mask = (roughness < 0.5).squeeze()
 
         if not glossy_mask.any():
             return color
 
         # Get RHS interaction distance from Monte Carlo sampling
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t2 = time.time()
+        t2 = get_time()
         si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t21 = time.time()
+        t21 = get_time()
         t_mc = si_glo_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t3 = time.time()
+        t3 = get_time()
 
         # Aggregate MC points into fixed number of gaussians
         t_fix, n_fix, var_fix = self.kMeans.fit(t_mc, precision=precision)
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t4 = time.time()
+        t4 = get_time()
 
         # Compute query size
         tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
         
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t5 = time.time()
+        t5 = get_time()
 
         # Glossy model inference
         N_glossy = t_fix.shape[0]
@@ -360,14 +344,10 @@ class NeuralConeRadiosity(NeuralRadiosity):
         # [N, n_clusters, 3: xyz]
         pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :])[active]
         # pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :]).reshape(-1, 3)
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t51 = time.time()
+        t51 = get_time()
 
         pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, radius)
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t52 = time.time()
+        t52 = get_time()
         pfilt_enc = torch.cat([
             pfilt_enc,
             pos_march,
@@ -382,14 +362,10 @@ class NeuralConeRadiosity(NeuralRadiosity):
         cone_color = torch.sum(cone_color, dim=1)
 
         # Merge with neural radiosity
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t6 = time.time()
+        t6 = get_time()
         color[glossy_mask] = self.merge_mlp(torch.cat(
             [color[glossy_mask], cone_color, roughness[glossy_mask]], dim=-1))
-        dr.sync_device()
-        torch.cuda.synchronize()
-        t7 = time.time()
+        t7 = get_time()
         # print("######################")
         # print("Glossy size:\t", glossy_mask.sum())
         # print("NR time:\t", t1-t0)

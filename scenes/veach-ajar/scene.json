@@ -1,0 +1,572 @@
+{
+    "version": "0.1.0",
+    "integrator": {
+        "type": "path",
+        "max_depth": 13
+    },
+    "sensor": {
+        "type": "perspective",
+        "fov": 60.0,
+        "transform": {
+            "name": "to_world",
+            "matrix": [
+                -0.137283,
+                -0.0319925,
+                -0.990015,
+                4.05402,
+                2.71355e-08,
+                0.999478,
+                -0.0322983,
+                1.61647,
+                0.990532,
+                -0.00443408,
+                -0.137213,
+                -2.30652,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ]
+        },
+        "sampler": {
+            "type": "independent",
+            "sample_count": 64
+        },
+        "film": {
+            "type": "hdrfilm",
+            "width": 1280,
+            "height": 720,
+            "file_format": "openexr",
+            "pixel_format": "rgb",
+            "rfilter": {
+                "type": "tent"
+            }
+        }
+    },
+    "bsdf": {
+        "LandscapeBSDF": {
+            "type": "diffuse",
+            "reflectance": {
+                "type": "bitmap",
+                "filename": "textures/landscape-with-a-lake.jpg",
+                "filter_type": "bilinear"
+            }
+        },
+        "TableBSDF": {
+            "type": "diffuse",
+            "reflectance": {
+                "type": "bitmap",
+                "filename": "textures/Good Textures_005844.jpg",
+                "filter_type": "bilinear"
+            }
+        },
+        "DoorHandleBSDF": {
+            "type": "roughconductor",
+            "alpha": 0.25,
+            "distribution": "beckmann",
+            "specular_reflectance": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "eta": [
+                1.65746,
+                0.880369,
+                0.521229
+            ],
+            "k": [
+                9.22387,
+                6.26952,
+                4.837
+            ]
+        },
+        "DoorBSDF": {
+            "type": "diffuse",
+            "reflectance": {
+                "type": "bitmap",
+                "filename": "textures/cherry-wood-texture.jpg",
+                "filter_type": "bilinear"
+            }
+        },
+        "DiffuseBSDF": {
+            "type": "diffuse",
+            "reflectance": [
+                0.8,
+                0.8,
+                0.8
+            ]
+        },
+        "FloorBSDF": {
+            "type": "roughconductor",
+            "alpha": 0.02,
+            "distribution": "ggx",
+            "specular_reflectance": {
+                "type": "checkerboard",
+                "color1": [
+                    0.2,
+                    0.2,
+                    0.2
+                ],
+                "color0": [
+                    0.8,
+                    0.8,
+                    0.8
+                ],
+                "transform": {
+                    "name": "to_uv",
+                    "scale": [
+                        20.0,
+                        80.0
+                    ]
+                }
+            },
+            "eta": [
+                1.65746,
+                0.880369,
+                0.521229
+            ],
+            "k": [
+                9.22387,
+                6.26952,
+                4.837
+            ]
+        },
+        "DoorFrameBSDF": {
+            "type": "diffuse",
+            "reflectance": [
+                0.247059,
+                0.168627,
+                0.0901961
+            ]
+        },
+        "PictureFrameBSDF": {
+            "type": "diffuse",
+            "reflectance": [
+                0.258824,
+                0.207843,
+                0.145098
+            ]
+        },
+        "HingeBSDF": {
+            "type": "roughconductor",
+            "alpha": 0.1,
+            "distribution": "ggx",
+            "specular_reflectance": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "eta": [
+                1.65746,
+                0.880369,
+                0.521229
+            ],
+            "k": [
+                9.22387,
+                6.26952,
+                4.837
+            ]
+        },
+        "LightBSDF": {
+            "type": "diffuse",
+            "reflectance": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        "Pot2BSDF": {
+            "type": "roughconductor",
+            "alpha": 0.15,
+            "distribution": "ggx",
+            "specular_reflectance": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "eta": [
+                1.65746,
+                0.880369,
+                0.521229
+            ],
+            "k": [
+                9.22387,
+                6.26952,
+                4.837
+            ]
+        },
+        "MaterialBSDF": {
+            "type": "dielectric",
+            "int_ior": 1.5,
+            "ext_ior": 1.0
+        },
+        "Pot3BSDF": {
+            "type": "diffuse",
+            "reflectance": [
+                0.8,
+                0.8,
+                0.8
+            ]
+        }
+    },
+    "shape": {
+        "Light": {
+            "type": "ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "ref": "LightBSDF",
+            "emitter": {
+                "type": "area",
+                "radiance": [
+                    1000.0,
+                    1000.0,
+                    1000.0
+                ]
+            },
+            "filename": "merged_meshes/Light.ply"
+        },
+        "Landscape": {
+            "type": "ply",
+            "filename": "merged_meshes/Landscape.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "LandscapeBSDF"
+        },
+        "PictureFrame": {
+            "type": "ply",
+            "filename": "merged_meshes/PictureFrame.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "PictureFrameBSDF"
+        },
+        "Floor": {
+            "type": "ply",
+            "filename": "merged_meshes/Floor.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "FloorBSDF"
+        },
+        "DoorHandle": {
+            "type": "ply",
+            "filename": "merged_meshes/DoorHandle.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "ref": "DoorHandleBSDF"
+        },
+        "Hinge_0001": {
+            "type": "ply",
+            "filename": "merged_meshes/Hinge.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "HingeBSDF"
+        },
+        "Door": {
+            "type": "ply",
+            "filename": "merged_meshes/Door.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "DoorBSDF"
+        },
+        "DoorFrame": {
+            "type": "ply",
+            "filename": "merged_meshes/DoorFrame.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "DoorFrameBSDF"
+        },
+        "Diffuse_0001": {
+            "type": "ply",
+            "filename": "merged_meshes/Diffuse.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "DiffuseBSDF"
+        },
+        "Table": {
+            "type": "ply",
+            "filename": "merged_meshes/Table.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "face_normals": true,
+            "ref": "TableBSDF"
+        },
+        "Pot2_0001": {
+            "type": "ply",
+            "filename": "merged_meshes/Pot2.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "ref": "Pot2BSDF"
+        },
+        "Pot3_0001": {
+            "type": "ply",
+            "filename": "merged_meshes/Pot3.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "ref": "Pot3BSDF"
+        },
+        "Material_0001": {
+            "type": "ply",
+            "filename": "merged_meshes/Material.ply",
+            "transform": {
+                "name": "to_world",
+                "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            },
+            "ref": "MaterialBSDF"
+        }
+    },
+    "spp": 64,
+    "resy": 720,
+    "resx": 1280,
+    "max_depth": 13
+}

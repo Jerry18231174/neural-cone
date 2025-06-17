@@ -2,11 +2,11 @@
     "name": "vanilla",
     "fps": 30,
     "duration": 4,
-    "spp": 16,
+    "spp": 10240,
     "cameras": [
-        "./out/camera0.npz",
+        "./out/living-room/camera.npz",
         "./out/camera1.npz",
         "./out/camera2.npz"
     ],
-    "render_mode": "LHS"
+    "render_mode": "PT"
 }

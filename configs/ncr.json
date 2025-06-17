@@ -11,6 +11,7 @@
         "cone_threshold": 0.1,
         "n_glossy_rhs": 128,
         "n_glossy_max_samples": 4,
+        "n_kmeans_iter": 10,
         "ray": {
             "name": "HashGrid",
             "n_levels": 4,

@@ -1,21 +1,26 @@
 #include <torch/extension.h>
 
 
+#ifndef N_CLUSTERS
+#define N_CLUSTERS 4
+#endif
+
+
 void launch_kmeans1d(
     torch::Tensor input,
     torch::Tensor centers,
     torch::Tensor counts,
     torch::Tensor stds,
-    int K, int n_iter);
+    int n_iter);
 
-std::vector<torch::Tensor> kmeans1d_forward(torch::Tensor input, int K, int n_iter) {
+std::vector<torch::Tensor> kmeans1d_forward(torch::Tensor input, int n_iter) {
     auto N = input.size(0);
     auto options = input.options();
-    auto centers = torch::zeros({N, K}, options);
-    auto counts  = torch::zeros({N, K}, options);
-    auto stds    = torch::zeros({N, K}, options);
+    auto centers = torch::zeros({N, N_CLUSTERS}, options);
+    auto counts  = torch::zeros({N, N_CLUSTERS}, options);
+    auto stds    = torch::zeros({N, N_CLUSTERS}, options);
 
-    launch_kmeans1d(input, centers, counts, stds, K, n_iter);
+    launch_kmeans1d(input, centers, counts, stds, n_iter);
     return {centers, counts, stds};
 }
 

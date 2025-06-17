@@ -1,6 +1,7 @@
 import torch
 
 from src.model.radiosity import NeuralRadiosity
+from src.sample.lhs_rhs import first_smooth, first_smooth1
 
 import drjit as dr
 import mitsuba as mi
@@ -31,7 +32,8 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         active: bool = True,
     ) -> tuple[mi.Color3f, bool, list[float]]:
         
-        si: mi.SurfaceInteraction3f = scene.ray_intersect(ray, active)
+        # si: mi.SurfaceInteraction3f = scene.ray_intersect(ray, active)
+        si, throughput, emission, _ = first_smooth(scene, sampler, ray, active)
 
         with torch.no_grad():
         
@@ -42,7 +44,7 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
             else:
                 raise ValueError("Invalid render mode:", self.render_mode)
 
-        result = mi.Color3f(color.to(torch.float32))
+        result = mi.Color3f(color.to(torch.float32)) * throughput + emission
         
         dr.sync_device()
         torch.cuda.synchronize()

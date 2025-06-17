@@ -20,7 +20,7 @@
 			<integer name="height" value="$resy" />
 			<string name="file_format" value="openexr" />
 			<string name="pixel_format" value="rgb" />
-			<rfilter type="tent" />
+			<rfilter type="box" />
 		</film>
 	</sensor>
 	<bsdf type="diffuse" id="LandscapeBSDF">
@@ -94,174 +94,105 @@
 	<bsdf type="diffuse" id="Pot3BSDF">
 		<rgb name="reflectance" value="0.8, 0.8, 0.8" />
 	</bsdf>
-	<shape type="rectangle" id="Light">
+	<shape type="ply" id="Light">
 		<transform name="to_world">
-			<matrix value="0.730445 0 0 -4.4391 0 -1.32136 -1.42138e-007 1.50656 0 1.42138e-007 -1.93037 -4.44377 0 0 0 1" />
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="LightBSDF" />
 		<emitter type="area">
 			<rgb name="radiance" value="1000, 1000, 1000" />
 		</emitter>
-	</shape>
-	<shape type="obj" id="Landscape">
-		<string name="filename" value="models/Mesh008.obj" />
+	<string name="filename" value="merged_meshes/Light.ply" /></shape>
+	<shape type="ply" id="Landscape">
+		<string name="filename" value="merged_meshes/Landscape.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="LandscapeBSDF" />
 	</shape>
-	<shape type="obj" id="PictureFrame">
-		<string name="filename" value="models/Mesh013.obj" />
+	<shape type="ply" id="PictureFrame">
+		<string name="filename" value="merged_meshes/PictureFrame.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="PictureFrameBSDF" />
 	</shape>
-	<shape type="obj" id="Floor">
-		<string name="filename" value="models/Mesh011.obj" />
+	<shape type="ply" id="Floor">
+		<string name="filename" value="merged_meshes/Floor.ply" />
 		<transform name="to_world">
-			<matrix value="1.8 0 0 2.3 0 1 0 0 0 0 1 0 0 0 0 1" />
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="FloorBSDF" />
 	</shape>
-	<shape type="obj" id="DoorHandle">
-		<string name="filename" value="models/Mesh015.obj" />
+	<shape type="ply" id="DoorHandle">
+		<string name="filename" value="merged_meshes/DoorHandle.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="DoorHandleBSDF" />
 	</shape>
-	<shape type="obj" id="Hinge_0001">
-		<string name="filename" value="models/Mesh016.obj" />
+	<shape type="ply" id="Hinge_0001">
+		<string name="filename" value="merged_meshes/Hinge.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="HingeBSDF" />
 	</shape>
-	<shape type="obj" id="Hinge_0002">
-		<string name="filename" value="models/Mesh012.obj" />
-		<transform name="to_world">
-			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
-		</transform>
-		<boolean name="face_normals" value="true" />
-		<ref id="HingeBSDF" />
-	</shape>
-	<shape type="obj" id="Hinge_0003">
-		<string name="filename" value="models/Mesh010.obj" />
-		<transform name="to_world">
-			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
-		</transform>
-		<boolean name="face_normals" value="true" />
-		<ref id="HingeBSDF" />
-	</shape>
-	<shape type="obj" id="Door">
-		<string name="filename" value="models/Mesh006.obj" />
+	<shape type="ply" id="Door">
+		<string name="filename" value="merged_meshes/Door.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="DoorBSDF" />
 	</shape>
-	<shape type="obj" id="DoorFrame">
-		<string name="filename" value="models/Mesh005.obj" />
+	<shape type="ply" id="DoorFrame">
+		<string name="filename" value="merged_meshes/DoorFrame.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="DoorFrameBSDF" />
 	</shape>
-	<shape type="obj" id="Diffuse_0001">
-		<string name="filename" value="models/Mesh007.obj" />
+	<shape type="ply" id="Diffuse_0001">
+		<string name="filename" value="merged_meshes/Diffuse.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="DiffuseBSDF" />
 	</shape>
-	<shape type="obj" id="Diffuse_0002">
-		<string name="filename" value="models/Mesh003.obj" />
-		<transform name="to_world">
-			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
-		</transform>
-		<boolean name="face_normals" value="true" />
-		<ref id="DiffuseBSDF" />
-	</shape>
-	<shape type="obj" id="Diffuse_0003">
-		<string name="filename" value="models/Mesh002.obj" />
-		<transform name="to_world">
-			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
-		</transform>
-		<boolean name="face_normals" value="true" />
-		<ref id="DiffuseBSDF" />
-	</shape>
-	<shape type="obj" id="Diffuse_0004">
-		<string name="filename" value="models/Mesh001.obj" />
-		<transform name="to_world">
-			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
-		</transform>
-		<boolean name="face_normals" value="true" />
-		<ref id="DiffuseBSDF" />
-	</shape>
-	<shape type="obj" id="Table">
-		<string name="filename" value="models/Mesh004.obj" />
+	<shape type="ply" id="Table">
+		<string name="filename" value="merged_meshes/Table.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="TableBSDF" />
 	</shape>
-	<shape type="obj" id="Diffuse_0005">
-		<string name="filename" value="models/Mesh014.obj" />
+	<shape type="ply" id="Pot2_0001">
+		<string name="filename" value="merged_meshes/Pot2.ply" />
 		<transform name="to_world">
-			<matrix value="1.8 0 0 2.3 0 1 0 0 0 0 1 0 0 0 0 1" />
-		</transform>
-		<boolean name="face_normals" value="true" />
-		<ref id="DiffuseBSDF" />
-	</shape>
-	<shape type="obj" id="Pot2_0001">
-		<string name="filename" value="models/Mesh009.obj" />
-		<transform name="to_world">
-			<matrix value="-0.0757886 0 -0.0468591 -1.95645 0 0.0891049 0 0.648205 0.0468591 0 -0.0757886 -1.77687 0 0 0 1" />
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="Pot2BSDF" />
 	</shape>
-	<shape type="obj" id="Pot2_0002">
-		<string name="filename" value="models/Mesh000.obj" />
+	<shape type="ply" id="Pot3_0001">
+		<string name="filename" value="merged_meshes/Pot3.ply" />
 		<transform name="to_world">
-			<matrix value="-0.0757886 0 -0.0468591 -1.95645 0 0.0891049 0 0.648205 0.0468591 0 -0.0757886 -1.77687 0 0 0 1" />
-		</transform>
-		<ref id="Pot2BSDF" />
-	</shape>
-	<shape type="obj" id="Pot3_0001">
-		<string name="filename" value="models/Mesh000.obj" />
-		<transform name="to_world">
-			<matrix value="-0.0891049 0 7.7898e-009 -1.95645 0 0.0891049 0 0.648205 -7.7898e-009 0 -0.0891049 -2.67687 0 0 0 1" />
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="Pot3BSDF" />
 	</shape>
-	<shape type="obj" id="Pot3_0002">
-		<string name="filename" value="models/Mesh009.obj" />
+	<shape type="ply" id="Material_0001">
+		<string name="filename" value="merged_meshes/Material.ply" />
 		<transform name="to_world">
-			<matrix value="-0.0891049 0 7.7898e-009 -1.95645 0 0.0891049 0 0.648205 -7.7898e-009 0 -0.0891049 -2.67687 0 0 0 1" />
-		</transform>
-		<ref id="Pot3BSDF" />
-	</shape>
-	<!-- <shape type="obj" id="Material_0001">
-		<string name="filename" value="models/Mesh009.obj" />
-		<transform name="to_world">
-			<matrix value="-0.0837611 0 0.0303939 -1.95645 0 0.0891049 0 0.651268 -0.0303939 0 -0.0837611 -3.57687 0 0 0 1" />
+			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="MaterialBSDF" />
 	</shape>
-	<shape type="obj" id="Material_0002">
-		<string name="filename" value="models/Mesh000.obj" />
-		<transform name="to_world">
-			<matrix value="-0.083761 0 0.0303938 -1.95645 0 0.0891049 0 0.651268 -0.0303938 0 -0.083761 -3.57687 0 0 0 1" />
-		</transform>
-		<ref id="MaterialBSDF" />
-	</shape> -->
-</scene>
+	</scene>

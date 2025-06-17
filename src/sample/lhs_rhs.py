@@ -9,7 +9,7 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 
-def first_smooth(
+def first_smooth_dnr(
     scene: mi.Scene,
     sampler: mi.Sampler,
     si_or_ray: Union[mi.SurfaceInteraction3f, mi.Ray3f],
@@ -77,6 +77,84 @@ def first_smooth(
             si = scene.ray_intersect(ray, active)
 
     return final_si, throughput, null_face, spec_mask
+
+
+def first_smooth(
+    scene: mi.Scene,
+    sampler: mi.Sampler,
+    si_or_ray: Union[mi.SurfaceInteraction3f, mi.Ray3f],
+    active: bool = True
+) -> tuple[mi.SurfaceInteraction3f, mi.Color3f, bool]:
+
+    with dr.suspend_grad():
+
+        final_si: mi.SurfaceInteraction3f = dr.zeros(mi.SurfaceInteraction3f)
+        active = mi.Bool(active)
+        throughput = mi.Color3f(1.0)
+        emission = mi.Color3f(0.0)
+        depth = mi.UInt32(0)
+
+        si: mi.SurfaceInteraction3f = dr.zeros(mi.SurfaceInteraction3f)
+        if isinstance(si_or_ray, mi.Ray3f):
+            si = scene.ray_intersect(si_or_ray, active)
+        elif isinstance(si_or_ray, mi.SurfaceInteraction3f):
+            si = si_or_ray
+
+        bsdf_ctx = mi.BSDFContext()
+
+        loop = mi.Loop(
+            "first smooth surface",
+            lambda: (
+                sampler,
+                si,
+                final_si,
+                active,
+                throughput,
+                emission,
+                depth,
+            )
+        )
+
+        max_depth = 16
+        loop.set_max_iterations(max_depth)
+
+        while loop(active):
+
+            bsdf: mi.BSDF = si.bsdf()
+            final_si[active] = si
+
+            # Mask of rays to continue tracing
+            spec_only = mi.has_flag(bsdf.flags(), mi.BSDFFlags.Delta) & \
+                       ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.Smooth)
+            
+            mask_out = bsdf.eval_null_transmission(si)
+            mask_out = (mask_out.x > 0) & (mask_out.y > 0) & (mask_out.z > 0)
+
+            active &= si.is_valid() & (spec_only) & (depth < max_depth)
+
+            # Mask of rays that hit a null face
+            null_face = ~si.is_valid() | (
+                (si.wi.z < 0) & ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.BackSide)
+            )
+
+            # Rays that hit emissive surfaces
+            current_emission = si.emitter(scene).eval(si)
+            emissive = (current_emission.x > 0) | (current_emission.y > 0) | (current_emission.z > 0)
+
+            bsdf_sample, bsdf_weight = bsdf.sample(
+                bsdf_ctx, si, sampler.next_1d(), sampler.next_2d(), active
+            )
+
+            ray = si.spawn_ray(si.to_world(bsdf_sample.wo))
+            emission += current_emission * throughput
+            throughput[active] *= bsdf_weight
+            throughput[null_face | emissive] = 0
+            depth[si.is_valid()] += 1
+
+            si = scene.ray_intersect(ray, active)
+
+    # return final_si, throughput, null_face, spec_mask
+    return final_si, throughput, emission, False
 
 
 def extract_input(si: mi.SurfaceInteraction3f, device: str = "cuda", dtype=torch.float32):
@@ -172,6 +250,7 @@ def get_mc_itsc(
     ray = si_rhs.spawn_ray(si_rhs.to_world(bsdf_sample.wo))
     si_bsdf_first = scene.ray_intersect(ray)
 
+    dr.eval(si_bsdf_first.t)
     dr.sync_device()
     torch.cuda.synchronize()
     t4 = time.time()
@@ -267,28 +346,33 @@ class LHSRHS:
         emitter_mask = self._emission > 1e-6
         t1 = time.time()
 
-        # Mask out invalid rhs intersections
-        bsdf_valid = self._bsdf_valid.reshape(-1, self.dirs_per_point, 1)
-        bsdf_color = torch.where(bsdf_valid, bsdf_color, torch.zeros_like(bsdf_color))
-
         # Render LHS color given BSDF & emitter sampling RHS
-        bsdf_emission = self._bsdf_emission.reshape(-1, self.dirs_per_point, 3)
-        bsdf_emit_mask = bsdf_emission > 0
-        bsdf_color = torch.where(bsdf_emit_mask, bsdf_emission, bsdf_color)
+        bsdf_thp = self._bsdf_thp.reshape(-1, self.dirs_per_point, 3)
+        bsdf_em = self._bsdf_em.reshape(-1, self.dirs_per_point, 3)
+        bsdf_color = bsdf_color.reshape(-1, self.dirs_per_point, 3)
+        bsdf_color = torch.nan_to_num(
+            bsdf_color * bsdf_thp + bsdf_em,
+            nan=0.0, posinf=0.0, neginf=0.0
+        )
         t2 = time.time()
 
         bsdf_weight = self._bsdf_weight.reshape(-1, self.dirs_per_point, 3)
         mis_bsdf_weight = self._mis_bsdf.reshape(-1, self.dirs_per_point, 1)
-        L_o_d_b = bsdf_color * bsdf_weight * mis_bsdf_weight
+        L_o_d_b = torch.nan_to_num(bsdf_color * bsdf_weight * mis_bsdf_weight, nan=0.0, posinf=0.0, neginf=0.0)
         t3 = time.time()
 
         f_d_e = self._f_d_e.reshape(-1, self.dirs_per_point, 3)
         emit_weight = self._emit_weight.reshape(-1, self.dirs_per_point, 3)
         mis_emit_weight = self._mis_emit.reshape(-1, self.dirs_per_point, 1)
-        L_o_d_e = emit_weight * f_d_e * mis_emit_weight
+        L_o_d_e = torch.nan_to_num(emit_weight * f_d_e * mis_emit_weight, nan=0.0, posinf=0.0, neginf=0.0)
         t4 = time.time()
 
-        out_color = (L_o_d_b + L_o_d_e).mean(dim=1)
+        rhs_color = L_o_d_b + L_o_d_e
+        rhs_thp = self._rhs_thp.reshape(-1, self.dirs_per_point, 3)
+        rhs_em = self._rhs_em.reshape(-1, self.dirs_per_point, 3)
+        rhs_color = rhs_color * rhs_thp + rhs_em
+
+        out_color = torch.mean(rhs_color, dim=1)
         dr.sync_device()
 
         out_color = torch.where(emitter_mask, self._emission, out_color)
@@ -348,12 +432,12 @@ class LHSRHS:
 
         ray = self.si_rhs.spawn_ray(self.si_rhs.to_world(bsdf_sample.wo))
         si_bsdf_first = self.scene.ray_intersect(ray)
-        si_bsdf, _, _, _ = first_smooth(self.scene, r_sampler, ray, active=True)
+        si_bsdf, throughput, emission, _ = first_smooth(self.scene, r_sampler, ray, active=True)
 
         self.si_bsdf = si_bsdf
         self.si_bsdf_first = si_bsdf_first
-        self._bsdf_emission = si_bsdf.emitter(self.scene).eval(si_bsdf).torch()
-        self._bsdf_valid = si_bsdf.is_valid().torch().bool()
+        self._bsdf_thp = throughput.torch()
+        self._bsdf_em = emission.torch()
         self._bsdf_sample = bsdf_sample
         self._bsdf_weight = bsdf_weight.torch()
         self._p_b_d_b = bsdf_sample.pdf
@@ -419,10 +503,13 @@ class LHSRHS:
         # Sample incident directions, trace intersection
         indices = dr.arange(mi.Int, 0, self.point_num)
         rhs_indices = dr.repeat(indices, self.dirs_per_point)
-        si_rhs = dr.gather(mi.SurfaceInteraction3f, self.si_lhs, rhs_indices)
+        si_rhs = dr.gather(mi.SurfaceInteraction3f, si_lhs, rhs_indices)
 
         # Intersect ray
-        si_rhs, _, _, _ = first_smooth(self.scene, r_sampler, si_rhs, active=True)
+        si_rhs, throughput, emission, _ = first_smooth(self.scene, r_sampler, si_rhs, active=True)
+
+        self._rhs_thp = throughput.torch()
+        self._rhs_em = emission.torch()
 
         return si_rhs
     
@@ -440,13 +527,15 @@ class LHSRHS:
         Move all tensor attributes to the specified device
         """
         self._emission = self._emission.to(device=device, dtype=dtype)
-        self._bsdf_valid = self._bsdf_valid.to(device=device)
-        self._bsdf_emission = self._bsdf_emission.to(device=device, dtype=dtype)
+        self._bsdf_thp = self._bsdf_thp.to(device=device, dtype=dtype)
+        self._bsdf_em = self._bsdf_em.to(device=device, dtype=dtype)
         self._bsdf_weight = self._bsdf_weight.to(device=device, dtype=dtype)
         self._mis_bsdf = self._mis_bsdf.to(device=device, dtype=dtype)
         self._f_d_e = self._f_d_e.to(device=device, dtype=dtype)
         self._emit_weight = self._emit_weight.to(device=device, dtype=dtype)
         self._mis_emit = self._mis_emit.to(device=device, dtype=dtype)
+        self._rhs_thp = self._rhs_thp.to(device=device, dtype=dtype)
+        self._rhs_em = self._rhs_em.to(device=device, dtype=dtype)
     
 
 def render_pt(scene: mi.Scene, sampler: mi.Sampler, si: mi.SurfaceInteraction3f):

@@ -4,7 +4,12 @@
 #include <cmath>
 
 
-template <typename scalar_t, int K>
+#ifndef N_CLUSTERS
+#define N_CLUSTERS 4
+#endif
+
+
+template <typename scalar_t>
 __device__ void kmeans1d_single_row(
     const scalar_t *row_data,
     scalar_t *out_centers,
@@ -13,7 +18,7 @@ __device__ void kmeans1d_single_row(
     int D, int n_iter
 ) {
     __shared__ scalar_t shared_data[1024];
-    __shared__ scalar_t centers[K];
+    __shared__ scalar_t centers[N_CLUSTERS];
     __shared__ int cluster_idx[1024];
 
     assert(D <= 1024);
@@ -42,18 +47,18 @@ __device__ void kmeans1d_single_row(
     }
 
     if (tid == 0) {
-        for (int k = 0; k < K; ++k) {
-            centers[k] = thread_min + (thread_max - thread_min) * k / (K - 1);
+        for (int k = 0; k < N_CLUSTERS; ++k) {
+            centers[k] = thread_min + (thread_max - thread_min) * k / (N_CLUSTERS - 1);
         }
     }
     __syncthreads();
     // Find min/max End
 
-    __shared__ scalar_t new_centers[K];
-    __shared__ int counts[K];
+    __shared__ scalar_t new_centers[N_CLUSTERS];
+    __shared__ int counts[N_CLUSTERS];
 
     for (int iter = 0; iter < n_iter; ++iter) {
-        if (tid < K) {
+        if (tid < N_CLUSTERS) {
             new_centers[tid] = 0;
             counts[tid] = 0;
         }
@@ -64,7 +69,7 @@ __device__ void kmeans1d_single_row(
             scalar_t val = shared_data[i];
             int best_k = 0;
             scalar_t best_dist = fabsf(val - centers[0]);
-            for (int k = 1; k < K; ++k) {
+            for (int k = 1; k < N_CLUSTERS; ++k) {
                 scalar_t dist = fabsf(val - centers[k]);
                 if (dist < best_dist) {
                     best_dist = dist;
@@ -77,14 +82,14 @@ __device__ void kmeans1d_single_row(
         }
         __syncthreads();
 
-        if (tid < K) {
+        if (tid < N_CLUSTERS) {
             scalar_t count = max((float)counts[tid], 1.0f);
             centers[tid] = new_centers[tid] / count;
         }
         __syncthreads();
     }
 
-    if (tid < K) {
+    if (tid < N_CLUSTERS) {
         out_centers[tid] = centers[tid];
         out_counts[tid] = 0;
         out_std[tid] = 0;
@@ -100,7 +105,7 @@ __device__ void kmeans1d_single_row(
     }
     __syncthreads();
 
-    if (tid < K) {
+    if (tid < N_CLUSTERS) {
         scalar_t count = max(out_counts[tid], 1.0f);
         out_std[tid] = sqrtf(out_std[tid] / count);
     }
@@ -112,33 +117,18 @@ __global__ void kmeans1d_kernel(
     scalar_t *centers,
     scalar_t *counts,
     scalar_t *stds,
-    int N, int D, int K, int n_iter
+    int N, int D, int n_iter
 ) {
     int rowIdx = blockIdx.x;
     int colIdx = threadIdx.x;
     if (rowIdx >= N || colIdx >= D) return;
 
     const scalar_t *row_ptr = input + rowIdx * D;
-    scalar_t *out_c = centers + rowIdx * K;
-    scalar_t *out_n = counts + rowIdx * K;
-    scalar_t *out_s = stds + rowIdx * K;
+    scalar_t *out_c = centers + rowIdx * N_CLUSTERS;
+    scalar_t *out_n = counts + rowIdx * N_CLUSTERS;
+    scalar_t *out_s = stds + rowIdx * N_CLUSTERS;
 
-    switch (K) {
-        // case 1:
-        //     kmeans1d_single_row<scalar_t, 1>(row_ptr, out_c, out_n, out_s, D, n_iter);
-        //     break;
-        // case 2:
-        //     kmeans1d_single_row<scalar_t, 2>(row_ptr, out_c, out_n, out_s, D, n_iter);
-        //     break;
-        case 4:
-            kmeans1d_single_row<scalar_t, 4>(row_ptr, out_c, out_n, out_s, D, n_iter);
-            break;
-        // case 8:
-        //     kmeans1d_single_row<scalar_t, 8>(row_ptr, out_c, out_n, out_s, D, n_iter);
-        //     break;
-        default:
-            printf("Unsupported K value: %d in block %d, thread %d\n", K, blockIdx.x, threadIdx.x);
-    }
+    kmeans1d_single_row<scalar_t>(row_ptr, out_c, out_n, out_s, D, n_iter);    
 }
 
 void launch_kmeans1d(
@@ -146,7 +136,7 @@ void launch_kmeans1d(
     torch::Tensor centers,
     torch::Tensor counts,
     torch::Tensor stds,
-    int K, int n_iter
+    int n_iter
 ) {
     int N = input.size(0);
     int D = input.size(1);
@@ -161,7 +151,7 @@ void launch_kmeans1d(
             centers.data_ptr<scalar_t>(),
             counts.data_ptr<scalar_t>(),
             stds.data_ptr<scalar_t>(),
-            N, D, K, n_iter
+            N, D, n_iter
         );
     }));
 }

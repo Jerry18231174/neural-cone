@@ -51,6 +51,7 @@ def merge_mesh(shapes: List[mi.Shape]) -> mi.Mesh:
     """
     vertices = []
     faces = []
+    uvs = []
     vertex_count = 0
     face_count = 0
 
@@ -59,11 +60,15 @@ def merge_mesh(shapes: List[mi.Shape]) -> mi.Mesh:
             param = mi.traverse(shape)
             vertices.append(param["vertex_positions"].numpy())
             faces.append(param["faces"].numpy() + vertex_count)
+            if param.get("vertex_texcoords") is not None:
+                uvs.append(param["vertex_texcoords"].numpy())
             vertex_count += shape.vertex_count()
             face_count += shape.face_count()
 
     vertices = np.concatenate(vertices, axis=0)
     faces = np.concatenate(faces, axis=0)
+    if len(uvs) > 0:
+        uvs = np.concatenate(uvs, axis=0)
 
     mesh = mi.Mesh(
         "veach-ajar",
@@ -75,6 +80,8 @@ def merge_mesh(shapes: List[mi.Shape]) -> mi.Mesh:
     mesh_params = mi.traverse(mesh)
     mesh_params["vertex_positions"] = mi.Float32(vertices)
     mesh_params["faces"] = mi.UInt32(faces)
+    if isinstance(uvs, np.ndarray):
+        mesh_params["vertex_texcoords"] = mi.Float32(uvs)
     mesh_params.update()
     
     return mesh
@@ -312,6 +319,6 @@ def gen_merged_scene(scene_dir: str):
 
 
 if __name__ == "__main__":
-    scene_dir = "scenes/living-room-2"
+    scene_dir = "scenes/bathroom"
     surface_areas = meshify(scene_dir)
     merged_scene = gen_merged_scene(scene_dir)
