@@ -174,6 +174,7 @@ def extract_input(si: mi.SurfaceInteraction3f, device: str = "cuda", dtype=torch
     roughness = si.bsdf().eval_roughness(si).torch().unsqueeze(1).to(device=device, dtype=dtype)
     active_side = (si.wi[2].torch() < 0).unsqueeze(1).to(device=device, dtype=dtype)
     
+    p[n.isnan()] = 0.0
     n[n.isnan()] = 0.3
     wr[wr.isnan()] = 0.3
 

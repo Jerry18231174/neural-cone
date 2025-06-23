@@ -107,7 +107,7 @@ def train(config: dict, args: argparse.Namespace):
         save_last=False,
         every_n_train_steps=500,
         dirpath=ckpt_dir,
-        filename="{step}_{loss:.3f}"
+        filename="{step}_{loss:.4f}"
     )
 
     # Lightning trainer

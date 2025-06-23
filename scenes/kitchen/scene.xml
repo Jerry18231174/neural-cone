@@ -54,7 +54,7 @@
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<boolean name="nonlinear" value="true" />
-		<rgb name="diffuse_reflectance" value="0.0399472, 0.14198, 0.0033027" />
+		<rgb name="diffuse_reflectance" value="0.14198, 0.0399472, 0.0033027" />
 	</bsdf>
 	<bsdf type="thindielectric" id="RadioGlassBSDF">
 		<float name="int_ior" value="1.5" />

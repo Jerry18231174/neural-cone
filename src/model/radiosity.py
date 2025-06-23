@@ -67,10 +67,11 @@ class RadiosityPipeline(L.LightningModule):
         """
         seed = self.global_step * self.trainer.world_size + self.global_rank
 
-        # Adaptive RHS
+        # Adaptive RHS and epsilon
         ad_ratio = 2 ** int(4 * (self.global_step / self.trainer.max_steps))
         point_num = self.pipeline_config["sample"]["n_points"] // ad_ratio
         dirs_per_point = self.pipeline_config["sample"]["n_dirs_per_point"] * ad_ratio
+        eps = 1e-1 / ad_ratio
 
         # Sample
         lhs_rhs = LHSRHS(
@@ -87,8 +88,8 @@ class RadiosityPipeline(L.LightningModule):
         rhs_color = result["rhs"].detach()
 
         # Compute loss
-        nr_norm = (rhs_color + lhs_color).detach() / 2 + 1e-1
-        loss = torch.mean(((rhs_color - lhs_color) / nr_norm) ** 2)
+        nr_norm = (rhs_color + lhs_color).detach() / 2 + eps
+        loss = torch.mean(((rhs_color - lhs_color) / nr_norm) ** 2) / ad_ratio
 
         # Logging
         self.log("loss", loss.item(), prog_bar=True)
@@ -272,7 +273,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
             )
 
         self.merge_mlp = ShallowMLP(
-            in_channels=6+1,
+            in_channels=6+1+3,
             out_channels=3,
             hidden_layers=1,
             hidden_channels=32,
@@ -364,7 +365,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         # Merge with neural radiosity
         t6 = get_time()
         color[glossy_mask] = self.merge_mlp(torch.cat(
-            [color[glossy_mask], cone_color, roughness[glossy_mask]], dim=-1))
+            [color[glossy_mask], cone_color, roughness[glossy_mask], albedo[glossy_mask]], dim=-1))
         t7 = get_time()
         # print("######################")
         # print("Glossy size:\t", glossy_mask.sum())

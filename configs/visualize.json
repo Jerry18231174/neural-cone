@@ -2,9 +2,9 @@
     "name": "vanilla",
     "fps": 30,
     "duration": 4,
-    "spp": 10240,
+    "spp": 102400,
     "cameras": [
-        "./out/living-room/camera.npz",
+        "./out/veach-ajar/camera.npz",
         "./out/camera1.npz",
         "./out/camera2.npz"
     ],
