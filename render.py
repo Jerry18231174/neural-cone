@@ -133,6 +133,8 @@ def render(config: dict, args: argparse.Namespace):
     save_camera = False
     load_camera = False
 
+    camera_id = 0
+
     while not ui.should_close():
         ui.begin_frame()
         
@@ -190,8 +192,9 @@ def render(config: dict, args: argparse.Namespace):
                     "x_fov": x_fov,
                 }
                 print(extrinsics)
-                np.savez("./out/camera.npz", extrinsics=extrinsics, intrinsics=intrinsics)
-                print("Camera config saved to camera.npz")
+                np.savez("./out/poses/{:04d}.npz".format(camera_id), extrinsics=extrinsics, intrinsics=intrinsics)
+                print("Camera config saved to ./out/poses/{:04d}.npz".format(camera_id))
+                camera_id += 1
                 save_camera = False
 
             _, load_camera = imgui.checkbox("Load camera config", load_camera)

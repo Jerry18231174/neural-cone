@@ -6,7 +6,7 @@ import argparse
 # Computational
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
 
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
@@ -18,9 +18,8 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 # Custom
-# from src.model.sdf import NGPSDF, GridSDF
 from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity
-# from src.dataset.sdf import SDFDataset
+from src.dataset.camera import CameraDataset
 from src.util.progress_bar import StepRichProgressBar, find_best_ckpt
 
 
@@ -125,7 +124,12 @@ def train(config: dict, args: argparse.Namespace):
     )
     
     # Train
-    fake_loader = DataLoader(TensorDataset(torch.arange(1)))
+    data_loader = DataLoader(
+        CameraDataset(os.path.join("scenes", args.scene, "camera_poses")),
+        collate_fn=lambda x: x[0],
+        batch_size=1,
+    )
+
     if ckpt_path is None:
         # Load model
         if config["model"]["name"] == "NR":
@@ -140,7 +144,7 @@ def train(config: dict, args: argparse.Namespace):
             model = NeuralConeRadiosity(config["model"], config, scene)
         model.train()
 
-        trainer.fit(model, train_dataloaders=fake_loader)
+        trainer.fit(model, train_dataloaders=data_loader)
     else:
         # Train from the chosen checkpoint
         if config["model"]["name"] == "NR":
@@ -158,7 +162,7 @@ def train(config: dict, args: argparse.Namespace):
                 scene=scene
             )
         
-        trainer.fit(model, ckpt_path=ckpt_path, train_dataloaders=fake_loader)
+        trainer.fit(model, ckpt_path=ckpt_path, train_dataloaders=data_loader)
     
 
 def parse_args():

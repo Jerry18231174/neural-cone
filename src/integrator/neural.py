@@ -16,7 +16,11 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         spp: int = 1,
         precision=torch.float32
     ) -> None:
-        super().__init__(mi.Properties())
+        props = mi.Properties()
+        # Set ray direction to pixel center (Implemented in Mitsuba3)
+        props["pixel_center"] = True
+
+        super().__init__(props)
 
         self.model = model
         self.render_mode = render_mode

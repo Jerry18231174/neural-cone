@@ -61,7 +61,7 @@ class RadiosityPipeline(L.LightningModule):
         self.scene = scene
         self.register_buffer("bbox", get_model_bbox(scene))
 
-    def training_step(self, *args, **kwargs):
+    def training_step(self, batch, batch_idx):
         """
         Training step for the model
         """
@@ -79,7 +79,10 @@ class RadiosityPipeline(L.LightningModule):
             point_num=point_num,
             dirs_per_point=dirs_per_point,
         )
-        lhs_rhs.sample(seed=seed)
+        if self.pipeline_config["sample"]["from_poses"]:
+            lhs_rhs.sample(seed=seed, pose=batch)
+        else:
+            lhs_rhs.sample(seed=seed)
         lhs_rhs.to(device=self.device)
 
         # Forward pass

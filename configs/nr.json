@@ -25,6 +25,7 @@
     },
     "sample": {
         "n_points": 65536,
-        "n_dirs_per_point": 32
+        "n_dirs_per_point": 32,
+        "from_poses": false
     }
 }

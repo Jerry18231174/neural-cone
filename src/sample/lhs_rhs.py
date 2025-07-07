@@ -128,7 +128,7 @@ def first_smooth(
                        ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.Smooth)
             
             mask_out = bsdf.eval_null_transmission(si)
-            mask_out = (mask_out.x > 0) & (mask_out.y > 0) & (mask_out.z > 0)
+            mask_out = (mask_out.x > 0) | (mask_out.y > 0) | (mask_out.z > 0)
 
             active &= si.is_valid() & (spec_only) & (depth < max_depth)
 
@@ -326,13 +326,17 @@ class LHSRHS:
         # MIS weight for emitter sampling
         self._mis_emit = None
 
-    def sample(self, seed : int = 0, si_lhs : mi.SurfaceInteraction3f = None):
+    def sample(self,
+        seed : int = 0,
+        si_lhs : mi.SurfaceInteraction3f = None,
+        pose : dict = None
+    ):
         # Sampling process
         if si_lhs is not None:
             self.si_lhs = si_lhs
             self.si_rhs = self.get_rhs_from_lhs(si_lhs)
         else:
-            self.sample_lhs(seed)
+            self.sample_lhs(seed, pose=pose)
         # self.get_wr_itsc()
         self.sample_bsdf_rhs(seed)
         self.sample_emit_rhs(seed)
@@ -388,7 +392,7 @@ class LHSRHS:
         
         return out_color
 
-    def sample_lhs(self, seed : int = 0):
+    def sample_lhs(self, seed : int = 0, pose : dict = None):
         # Set sampler
         areas = compute_areas(self.scene)
         l_sampler: mi.Sampler = mi.load_dict({"type": "independent"})
@@ -415,8 +419,83 @@ class LHSRHS:
             mi.warp.square_to_uniform_hemisphere(l_sampler.next_2d()),
         )
 
+        # Sample from camera pose
+        if pose is not None:
+            si = self.sample_lhs_pose(pose, si_lhs=si, seed=seed)
+
         self.si_lhs = si
         self.si_rhs = self.get_rhs_from_lhs(si)
+    
+    def sample_lhs_pose(self,
+        pose: dict, si_lhs: mi.SurfaceInteraction3f = None,
+        seed : int = 0, rr_prob: float = 0.7
+    ):
+        # Set sampler
+        sampler: mi.Sampler = mi.load_dict({"type": "independent"})
+        sampler.seed(seed, self.point_num)
+
+        # Generate random camera rays
+        to_world = mi.Transform4f(pose["extrinsics"][None, ...])
+        x_fov = pose["intrinsics"]["x_fov"]
+        width = pose["intrinsics"]["width"]
+        height = pose["intrinsics"]["height"]
+        focal_length = 0.5 * width / np.tan(np.radians(x_fov) * 0.5)
+
+        sample = sampler.next_2d() - 0.5
+        d = dr.normalize(mi.Vector3f(-width * sample[0], height * sample[1], focal_length))
+        
+        ray = mi.Ray3f()
+        ray.o = to_world.translation()
+        ray.d = to_world @ d
+        
+        # Intersect rays with the scene
+        active = mi.Bool(True)
+        si: mi.SurfaceInteraction3f = dr.zeros(mi.SurfaceInteraction3f)
+        final_si: mi.SurfaceInteraction3f = mi.SurfaceInteraction3f(si)
+        bsdf_ctx = mi.BSDFContext()
+
+        loop = mi.Loop(
+            "sample LHS pose",
+            lambda: (
+                sampler,
+                ray,
+                si,
+                final_si,
+                active
+            )
+        )
+
+        max_depth = 16
+        loop.set_max_iterations(max_depth)
+
+        while loop(active):
+            si = self.scene.ray_intersect(ray, active)
+            bsdf: mi.BSDF = si.bsdf()
+
+            null_face = ~si.is_valid() | (
+                (si.wi.z < 0) & ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.BackSide)
+            )
+
+            # Sample ray
+            bsdf_sample, bsdf_weight = bsdf.sample(
+                bsdf_ctx, si, sampler.next_1d(), sampler.next_2d(), active
+            )
+            ray = si.spawn_ray(si.to_world(bsdf_sample.wo))
+
+            # Reset ray for invalid intersections
+            sample = (sampler.next_2d() - 0.5)[null_face]
+            d = dr.normalize(mi.Vector3f(-width * sample[0], height * sample[1], focal_length))
+            ray.o[null_face] = to_world.translation()
+            ray.d[null_face] = to_world @ d
+
+            recorded = sampler.next_1d() > rr_prob & ~null_face
+
+            final_si[active & recorded] = si
+            active &= ~recorded
+
+        dr.eval(final_si)
+
+        return final_si
     
     def sample_bsdf_rhs(self, seed : int = 0):
         # Set sampler
