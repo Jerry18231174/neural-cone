@@ -25,6 +25,9 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 
+from src.denoise.utils import empty_cache
+from src.denoise.function_wrap import FunctionWrap
+
 def load_render_vars(config: dict, args: argparse.Namespace):
     """
     Load render variables
@@ -135,6 +138,24 @@ def render(config: dict, args: argparse.Namespace):
 
     camera_id = 0
 
+    rfilter_idx = None
+    if(args.box_filter):
+        rfilter_idx = 0
+    function_wrap = FunctionWrap(scene, ui, False, rfilter_idx)
+    ui.record_function_wrap(function_wrap)
+    if (args.ref != ""):
+        function_wrap.load_refexr(args.ref)
+    
+    use_denoiser = False
+    denoiser_wrap = None
+    update_frame = False
+
+    if (args.denoise):
+        from src.denoise.denoiser_wrap import DenoiserWrap
+        denoiser_wrap = DenoiserWrap(scene=scene, ui=ui, type=5)
+        denoiser_wrap.type = 4  # DSIMPLE
+        # use_denoiser = True
+
     while not ui.should_close():
         ui.begin_frame()
         
@@ -143,6 +164,8 @@ def render(config: dict, args: argparse.Namespace):
         params.update()
 
         if imgui.tree_node("Render Options", imgui.TREE_NODE_DEFAULT_OPEN):
+            vc = function_wrap.render_ui_before()
+            update_frame = update_frame or vc
 
             _, int_type = imgui.combo("Integrator", int_type, [
                                     "Path", "LHS", "RHS", "Depth", "Albedo", "Normal"])
@@ -179,6 +202,17 @@ def render(config: dict, args: argparse.Namespace):
             _, exposure = imgui.slider_float("Exposure", exposure, 0.1, 5)
             _, save_img = imgui.checkbox("Save image", save_img)
 
+            if (args.denoise):
+                vc, use_denoiser = imgui.checkbox("Use Denoiser", use_denoiser)
+                if vc and not use_denoiser:
+                    denoiser_wrap.free_all_denoisers()
+                update_frame = update_frame or vc
+            if (use_denoiser):
+                vc, integrator = denoiser_wrap.render_ui(integrator)
+                if vc:
+                    empty_cache()
+                update_frame = update_frame or vc
+
             imgui.tree_pop()
         
         if imgui.tree_node("Camera", imgui.TREE_NODE_DEFAULT_OPEN):
@@ -213,17 +247,27 @@ def render(config: dict, args: argparse.Namespace):
         # dr.sync_device()
         # torch.cuda.synchronize()
         # t0 = time.time()
-        img = mi.render(scene, integrator=integrator, seed=seed, spp=spp).torch()
+        img = mi.render(scene, integrator=integrator, seed=seed, spp=spp)
         # dr.sync_device()
         # torch.cuda.synchronize()
         # t1 = time.time()
         # print("Render time: {:.2f} ms".format((t1 - t0) * 1000))
+
+        if (use_denoiser):
+            img = denoiser_wrap.denoise(img)
+        else:
+            img = img.torch()
+
         if save_img:
             dr.sync_device()
             torch.cuda.synchronize()
             mi.util.write_bitmap(args.output, img)
             print("Image saved to", args.output)
             save_img = False
+
+        if (function_wrap.get_should_calc_error()):
+            function_wrap.calc_error_run(img)
+
         ui.end_frame()
         exposure = 1
         img = torch.log1p(torch.abs(exposure * img))  # tone mapping
@@ -247,6 +291,13 @@ def parse_args():
     parser.add_argument("-m", "--model_ckpt", type=str, default=None)
     parser.add_argument("-o", "--output", type=str, default="./out/test.exr")
     parser.add_argument("-H", "--half_precision", type=bool, default=False)
+
+    # if have --denoise, then args.denoise is True, else False
+    parser.add_argument("--denoise", action="store_true")
+    parser.add_argument("--box_filter", action="store_true")
+    # reference image
+    parser.add_argument("--ref", type=str, default="")
+    
     return parser.parse_args()
 
 

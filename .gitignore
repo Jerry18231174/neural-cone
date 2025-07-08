@@ -3,3 +3,14 @@ __pycache__/
 pycuda*/
 out/
 imgui.ini
+
+
+src/denoise/**/pybind11
+src/denoise/**/*.pyd
+src/denoise/**/*.so
+src/denoise/**/oidn
+src/denoise/**/*.egg-info
+src/denoise/AFGSA/model/**/*.pt
+src/denoise/WSKPD/models/
+
+*/**/build

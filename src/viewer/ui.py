@@ -4,37 +4,48 @@ import OpenGL.GL.shaders
 from OpenGL.GL.ARB.pixel_buffer_object import *
 import imgui
 from imgui.integrations.glfw import GlfwRenderer
-
-import pycuda.driver as cuda_driver
-import pycuda.gl as cuda_gl
-
+import drjit as dr
 import mitsuba as mi
-mi.set_variant("cuda_rgb")
+
+from cuda import cudart
+
 import numpy as np
 import drjit as dr
 import torch
 import time
 import os
 import warnings
-from src.viewer.camera import FPSCamera
+from src.denoise.ogl.gl_helper import OpenGLHelper as glh
+from src.denoise.ogl.compute_task import ComputeTask
+from src.denoise.function_wrap import FunctionWrap
+
+
+def check_cuda_error(cres: cudart.cudaError_t):
+    if cres != cudart.cudaError_t.cudaSuccess:
+        print(str(cres))
+        print("\033[31mCUDA error: {}\033[0m".format(cres))
 
 
 class UI:
 
     def __init__(self, width, height, camera, name="Render"):
-
+        self.gpu = True  # TODO
         self.width = width
         self.height = height
         self.name = name
 
-        self.camera : FPSCamera = camera
-        # self.dscene : DynamicMeshGraph = dscene
+        self.camera = camera
         self.first_mouse = True
         self.prev_x = 0
         self.prev_y = 0
-        
+
         self.current = time.time()
         self.duration = 0
+        self.frames = 0
+
+        self.use_tonemapping = True
+        self.exposure = 1.0
+        self.function_wrap: FunctionWrap = None
 
         # initialize glfw
         if not glfw.init():
@@ -70,21 +81,34 @@ class UI:
             file_path + "/shader/hello.frag"
         )
         self.vao = self.create_vao()
-        self.texture = self.create_texture()
 
-        import pycuda.gl.autoinit
-        self.pbo = self.create_pbo(width, height)
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-        self.bufobj = cuda_gl.BufferObject(int(self.pbo))
+        self.texture_size = (-1, -1)
+        self.texture = None
+        self.pbo = None
+        self.bufobj = None
+        self.compute_task = None
+
+        self.check_and_update_texture_size(width, height)
+
+    def record_function_wrap(self, function_wrap: FunctionWrap):
+        self.function_wrap = function_wrap
+
+    def set_tonemapping(self, use_tonemapping: bool, exposure: float = None):
+        self.use_tonemapping = use_tonemapping
+        if exposure != None:
+            self.exposure = exposure
 
     def close(self):
+        if self.compute_task != None:
+            self.compute_task.release()
+        if self.gpu:
+            cres, = cudart.cudaGraphicsUnregisterResource(self.bufobj)
+            check_cuda_error(cres)
+            glDeleteBuffers(1, [self.pbo])
 
-        self.bufobj.unregister()
-
-        glDeleteProgram(self.program)
+        glDeleteTextures([self.texture])
         glDeleteVertexArrays(1, [self.vao])
-        glDeleteBuffers(1, [self.pbo])
-        glDeleteTextures(1, [self.texture])
+        glDeleteProgram(self.program)
 
         self.impl.shutdown()
         glfw.destroy_window(self.window)
@@ -110,13 +134,13 @@ class UI:
         # flip vertically
         quad = np.array([
             # position 2, texcoord 2
-            -1.0,  1.0,  0.0, 0.0,
-            -1.0, -1.0,  0.0, 1.0,
-            1.0, -1.0,  1.0, 1.0,
+            -1.0, 1.0, 0.0, 0.0,
+            -1.0, -1.0, 0.0, 1.0,
+            1.0, -1.0, 1.0, 1.0,
 
-            -1.0,  1.0,  0.0, 0.0,
-            1.0, -1.0,  1.0, 1.0,
-            1.0,  1.0,  1.0, 0.0
+            -1.0, 1.0, 0.0, 0.0,
+            1.0, -1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 0.0
         ], dtype=np.float32)
 
         vao = glGenVertexArrays(1)
@@ -131,7 +155,7 @@ class UI:
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 *
                               quad.itemsize, ctypes.c_void_p(2 * quad.itemsize))
         glEnableVertexAttribArray(1)
-
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
         glBindVertexArray(0)
         glDeleteBuffers(1, [vbo])
 
@@ -147,7 +171,7 @@ class UI:
 
         return pbo
 
-    def create_texture(self):
+    def create_texture(self, width, height):
 
         texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, texture)
@@ -156,44 +180,31 @@ class UI:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, self.width,
-                     self.height, 0, GL_RGB, GL_FLOAT, None)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 1)
+        # glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, None)
+        glTexStorage2D(GL_TEXTURE_2D, 2, GL_RGBA32F, width, height)  # mipmap levels = 1
+        # glGenerateMipmap(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, 0)
 
         return texture
 
     def process_input(self):
         if glfw.get_key(self.window, glfw.KEY_ESCAPE) == glfw.PRESS:
             glfw.set_window_should_close(self.window, True)
-        
-        # Camera control
         if glfw.get_key(self.window, glfw.KEY_W) == glfw.PRESS:
-            self.camera.move(0, 1)
+            self.camera.move(1, 1)
         if glfw.get_key(self.window, glfw.KEY_S) == glfw.PRESS:
-            self.camera.move(0, -1)
+            self.camera.move(1, -1)
         if glfw.get_key(self.window, glfw.KEY_A) == glfw.PRESS:
             self.camera.move(2, 1)
         if glfw.get_key(self.window, glfw.KEY_D) == glfw.PRESS:
             self.camera.move(2, -1)
-        if glfw.get_key(self.window, glfw.KEY_SPACE) == glfw.PRESS:
-            self.camera.move(1, 1)
-        if glfw.get_key(self.window, glfw.KEY_LEFT_CONTROL) == glfw.PRESS:
-            self.camera.move(1, -1)
+        if glfw.get_key(self.window, glfw.KEY_Q) == glfw.PRESS:
+            self.camera.move(0, 1)
+        if glfw.get_key(self.window, glfw.KEY_E) == glfw.PRESS:
+            self.camera.move(0, -1)
 
-        if glfw.get_key(self.window, glfw.KEY_LEFT) == glfw.PRESS:
-            self.camera.rotate(-1, 0)
-        if glfw.get_key(self.window, glfw.KEY_RIGHT) == glfw.PRESS:
-            self.camera.rotate(1, 0)
-        if glfw.get_key(self.window, glfw.KEY_UP) == glfw.PRESS:
-            self.camera.rotate(0, 1)
-        if glfw.get_key(self.window, glfw.KEY_DOWN) == glfw.PRESS:
-            self.camera.rotate(0, -1)
-        
-        if glfw.get_key(self.window, glfw.KEY_O) == glfw.PRESS:
-            self.camera.zoom(10)
-        if glfw.get_key(self.window, glfw.KEY_I) == glfw.PRESS:
-            self.camera.zoom(-10)
-            
         if glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS:
             xpos, ypos = glfw.get_cursor_pos(self.window)
             if self.first_mouse:
@@ -206,110 +217,139 @@ class UI:
             self.camera.rotate(xoffset, yoffset)
         else:
             self.first_mouse = True
-        
-        # Object control
-        if glfw.get_key(self.window, glfw.KEY_T) == glfw.PRESS:
-            self.dscene.shape_translate(0, 1)
-        if glfw.get_key(self.window, glfw.KEY_G) == glfw.PRESS:
-            self.dscene.shape_translate(0, -1)
-        if glfw.get_key(self.window, glfw.KEY_F) == glfw.PRESS:
-            self.dscene.shape_translate(2, -1)
-        if glfw.get_key(self.window, glfw.KEY_H) == glfw.PRESS:
-            self.dscene.shape_translate(2, 1)
-        if glfw.get_key(self.window, glfw.KEY_R) == glfw.PRESS:
-            self.dscene.shape_translate(1, 1)
-        if glfw.get_key(self.window, glfw.KEY_Y) == glfw.PRESS:
-            self.dscene.shape_translate(1, -1)
-        
-        # if glfw.get_key(self.window, glfw.KEY_U) == glfw.PRESS:
-        #     self.dscene.shape_scale(2)
-        # if glfw.get_key(self.window, glfw.KEY_J) == glfw.PRESS:
-        #     self.dscene.shape_scale(0.5)
 
     def should_close(self):
         return glfw.window_should_close(self.window)
 
+    def set_should_close(self, value):
+        glfw.set_window_should_close(self.window, value)
+
     def begin_frame(self):
 
         t = time.time()
-        fps = 1.0 / (t - self.current)
+        fps = t - self.current
+        if (fps != 0):
+            fps = 1.0 / fps
         self.duration += t - self.current
         self.current = t
 
         imgui.new_frame()
+        self.frames += 1
 
         imgui.begin("Options")
 
         imgui.text("Time: {:.1f}".format(self.duration))
         imgui.text("FPS: {:.1f}".format(fps))
-
-        self.process_input()
+        imgui.text("Total Frames: {}".format(self.frames))
 
     # img: (height, width, 3) np.float32
     def write_texture_cpu(self, img):
-
         glBindTexture(GL_TEXTURE_2D, self.texture)
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, self.width,
-                        self.height, GL_RGB, GL_FLOAT, img)
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, self.texture_size[0], self.texture_size[1], GL_RGB, GL_FLOAT, img)
+        glGenerateMipmap(GL_TEXTURE_2D)
+        glBindTexture(GL_TEXTURE_2D, 0)
 
     # img: (height, width, 3) torch.float32
     def write_texture_gpu(self, img):
-
-        mapping = self.bufobj.map()
+        # flashing problem
         dr.sync_device()
-        cuda_driver.memcpy_dtod(mapping.device_ptr(),
-                                img.data_ptr(), img.numel() * 4)
-        mapping.unmap()
+        cres, = cudart.cudaGraphicsMapResources(1, self.bufobj, 0)
+        check_cuda_error(cres)
+        cres, ptr, size = cudart.cudaGraphicsResourceGetMappedPointer(self.bufobj)
+        check_cuda_error(cres)
+        cres, = cudart.cudaMemcpy(ptr, img.data_ptr(), size, cudart.cudaMemcpyKind.cudaMemcpyDeviceToDevice)
+        check_cuda_error(cres)
+        cres, = cudart.cudaGraphicsUnmapResources(1, self.bufobj, 0)
+        check_cuda_error(cres)
 
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, int(self.pbo))
         glBindTexture(GL_TEXTURE_2D, self.texture)
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, self.width,
-                        self.height, GL_RGB, GL_FLOAT, ctypes.c_void_p(0))
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, self.texture_size[0],
+                        self.texture_size[1], GL_RGB, GL_FLOAT, ctypes.c_void_p(0))
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0)
 
-    def end_frame(self):
-        imgui.end()
+    def end_frame(self, save_path=None):
+        save_image: bool = (save_path is not None) and (save_path != "")
+        calc_error: bool = (self.function_wrap != None) and \
+            (self.function_wrap.get_should_calc_error())
+        read_tex_in: bool = save_image or calc_error
 
-        imgui.render()
-        imgui.end_frame()
+        if self.compute_task != None:
+            self.compute_task.run(group_size=self.texture_size, tex_input=self.texture)
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
         glClearColor(0.0, 0.0, 0.0, 1.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         glUseProgram(self.program)
+        glActiveTexture(GL_TEXTURE0)
+        tex_input = self.texture
+        if self.compute_task != None and hasattr(self.compute_task, "output_texture"):
+            tex_input = self.compute_task.output_texture
+        glBindTexture(GL_TEXTURE_2D, tex_input)
+        glBindImageTexture(0, self.texture, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F)
+        glUniform1i(glGetUniformLocation(self.program, "Image"), 0)  # binding in shader needs ogl420
+        glUniform4f(glGetUniformLocation(self.program, "v1"), float(self.use_tonemapping), self.exposure, 0, 0)
         glBindVertexArray(self.vao)
-        glBindTexture(GL_TEXTURE_2D, self.texture)
         glDrawArrays(GL_TRIANGLES, 0, 6)
+
+        if (read_tex_in):
+            frame_buffer = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, None)
+            frame_buffer = frame_buffer.reshape(self.height, self.width, 3)
+            # frame_buffer = glReadPixels(0, 0, self.width, self.height, GL_RGB, GL_FLOAT)
+            # frame_buffer = np.flip(frame_buffer.reshape(self.height, self.width, 3), 0)
+            if (save_image):
+                mi.util.write_bitmap(save_path, frame_buffer)
+                dr.sync_all_devices()
+            if (calc_error):
+                img = torch.from_numpy(frame_buffer.copy()).cuda()
+                self.function_wrap.calc_error_run(img)
+
+        imgui.end()
+
+        imgui.render()
+        imgui.end_frame()
 
         self.impl.render(imgui.get_draw_data())
         self.impl.process_inputs()
-        # self.process_input()
+        self.process_input()
         glfw.swap_buffers(self.window)
         glfw.poll_events()
 
+        glBindVertexArray(0)
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glUseProgram(0)
 
-def start_ui(scene, spp=4, seed=0):
-    param = mi.traverse(scene)
-    width, height = param['PerspectiveCamera.film.size'].numpy()
-    x_fov = param['PerspectiveCamera.x_fov'].numpy()[0]
-    extrinsic = param['PerspectiveCamera.to_world'].matrix.numpy()[0]
-    camera = FPSCamera({
-        "width": width,
-        "height": height,
-        "x_fov": x_fov,
-    }, extrinsic, 0.1)
-    ui = UI(width, height, camera, scene)
-    while not ui.should_close():
-        ui.begin_frame()
-        param['PerspectiveCamera.to_world'] = mi.Matrix4f(camera.get_transform()[None, ...])
-        param['PerspectiveCamera.x_fov'] = mi.Float32(camera.get_x_fov()[None, ...])
-        param.update()
-        img = mi.render(scene, spp=spp).torch()
-        # ui.write_texture_cpu(img)
-        ui.write_texture_gpu(img)
-        ui.end_frame()
-    ui.close()
-    
+        glh.check_errors()
 
-if __name__ == "__main__":
-    scene = mi.load_file('scenes/cornell-box/scene.xml')
-    start_ui(scene)
+    def check_and_update_texture_size(self, width, height):
+        if width == self.texture_size[0] and height == self.texture_size[1]:
+            return
+        if self.gpu:
+            if self.bufobj != None:
+                cres, = cudart.cudaGraphicsUnregisterResource(self.bufobj)
+                check_cuda_error(cres)
+            if self.pbo != None:
+                glDeleteBuffers(1, [self.pbo])
+
+        if self.texture != None:
+            glDeleteTextures(1, [self.texture])
+
+        self.texture_size = (width, height)
+        self.texture = self.create_texture(*self.texture_size)
+
+        if self.gpu:
+            self.pbo = self.create_pbo(self.texture_size[0], self.texture_size[1])
+            cres, self.bufobj = cudart.cudaGraphicsGLRegisterBuffer(int(self.pbo), cudart.cudaGraphicsRegisterFlags(0))
+            check_cuda_error(cres)
+
+        # cue compute task
+        if self.compute_task != None and (hasattr(self.compute_task, "resize")):
+            self.compute_task.resize(*self.texture_size)
+
+    def set_compute_task(self, task: ComputeTask, release: bool = True):
+        if self.compute_task != None and release:
+            self.compute_task.release()
+        self.compute_task = task

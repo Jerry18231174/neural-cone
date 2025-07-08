@@ -1,10 +1,52 @@
 import mitsuba as mi
 import numpy as np
 import argparse
+import torch
 
 mi.set_variant("cuda_rgb")
 
 EPSILON = 1e-2
+
+def compute_MAPE_torch(img, ref):
+    e = torch.abs(img - ref) / (ref + EPSILON)
+    return torch.mean(e, dim=2)
+
+def compute_MSE_torch(img, ref):
+    e = torch.square(img - ref)
+    return torch.mean(e, dim=2)
+
+def compute_relMSE_torch(img, ref):
+    e = torch.square((img - ref) / (ref + EPSILON))
+    return torch.mean(e, dim=2)
+
+def compute_MAE_torch(img, ref):
+    e = torch.abs(img - ref)
+    return torch.mean(e, dim=2)
+
+def compute_SMAPE_torch(img, ref):
+    e = 2 * torch.abs(img - ref) / (img + ref + EPSILON)
+    return torch.mean(e, dim=2)
+
+def compute_img_torch(img, ref, type):
+    if type == "MSE":
+        return compute_MSE_torch(img, ref)
+    elif type == "relMSE":
+        return compute_relMSE_torch(img, ref)
+    elif type == "MAPE":
+        return compute_MAPE_torch(img, ref)
+    elif type == "MAE":
+        return compute_MAE_torch(img, ref)
+    elif type == "SMAPE":
+        return compute_SMAPE_torch(img, ref)
+    else:
+        raise NotImplementedError
+
+
+def compute_metric_torch(img, ref, type, discard=0.001):
+    num = int(img.shape[0] * img.shape[1] * (1 - discard))
+    e = compute_img_torch(img, ref, type)
+    e = torch.sort(e.view(-1))[0][:num]
+    return torch.mean(e)
 
 # np.ndarray (H, W, 3) -> np.ndarray (H, W)
 def compute_MSE(img, ref):
