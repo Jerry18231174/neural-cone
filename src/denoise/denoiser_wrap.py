@@ -34,25 +34,17 @@ elif os.name == "posix":
 
 from src.viewer.ui import UI
 
-# from denoise_mi.optix import OptixDenoiserMI
 from denoise_oidn.oidn import OidnDenoiser
-# from denoise_optix.optix import OptixDenoiser
 # if sys.platform == "win32":
 from simple_denoise.filter import FilterTasks
 
-TYPES = ["optix-mi", "optix", "oidn", "WSKPD", "Simple", "ANF", "CUDA_AA", "AFGSA"]
-OFFLINE_TYPES = ["AFGSA"]
+TYPES = ["oidn", "Simple"]
+OFFLINE_TYPES = []
 ONLINE_TYPES_NUM = len(TYPES) - len(OFFLINE_TYPES)
 # type
-DOPTIX_MI = 0
-DOPTIX = 1
-DOIDN = 2
-DWSKPD = 3
-DSIMPLE = 4
-DANF = 5
-CUDA_AA = 6
-DAFGSA = 7
-DTYPES = [DOPTIX_MI, DOPTIX, DOIDN, DWSKPD, DSIMPLE, DANF, CUDA_AA, DAFGSA]
+DOIDN = 0
+DSIMPLE = 1
+DTYPES = [DOIDN, DSIMPLE]
 # platform
 PWINDOWS = 0
 PLINUX = 1
@@ -62,11 +54,7 @@ def platform_test():
     # 0: windows, 1: linux
     platform = ["windows", "linux"]
     ret = np.ones((len(TYPES), 2))
-    ret[DWSKPD][PLINUX] = 0
     ret[DSIMPLE][PLINUX] = 0
-    ret[DANF][PLINUX] = 0
-    ret[DAFGSA][PLINUX] = 0
-    ret[CUDA_AA][PLINUX] = 0
     print("Denoiser test on platform:")
     for i in range(len(TYPES)):
         for j in range(2):
@@ -98,39 +86,15 @@ class DenoiserWrap:
         self.type = type
 
     def get_denoiser(self, type: int):
-        if type == DOPTIX_MI:
-            if self.optix_denoiser_mi is None:
-                self.optix_denoiser_mi = OptixDenoiserMI(self.scene)
-            return self.optix_denoiser_mi
-        elif type == DOPTIX:
-            if self.optix_denoiser is None:
-                self.optix_denoiser = OptixDenoiser(self.scene)
-            return self.optix_denoiser
-        elif type == DOIDN:
+        if type == DOIDN:
             if self.odin_denoiser is None:
                 self.odin_denoiser = OidnDenoiser(self.scene)
             return self.odin_denoiser
-        elif type == DWSKPD:
-            if self.wskpd_denoiser is None:
-                self.wskpd_denoiser = WSKPDDenoiser(self.scene)
-            return self.wskpd_denoiser
-        elif type == DAFGSA:
-            if self.afgsa_denoiser is None:
-                self.afgsa_denoiser = AFGSADenoiser()
-            return self.afgsa_denoiser
         elif type == DSIMPLE:
             if self.denoise_task is None:
                 self.denoise_task = FilterTasks(self.ui, self.scene)
             self.ui.set_compute_task(self.denoise_task, False)
             return self.denoise_task
-        elif type == DANF:
-            if self.anf_denoiser is None:
-                self.anf_denoiser = ANFDenoiser()
-            return self.anf_denoiser
-        elif type == CUDA_AA:
-            if self.cuda_aa is None:
-                self.cuda_aa = CUDAAADenoiser(self.scene)
-            return self.cuda_aa
         else:
             return None
 
@@ -179,29 +143,12 @@ class DenoiserWrap:
                 self.free_all_denoisers()
             value_changed = value_changed or vc
             denoiser = self.get_denoiser(self.type)
-            if (self.type == DOPTIX_MI):
-                vc, integrator = denoiser.render_ui(integrator)
-                value_changed = value_changed or vc
-            elif (self.type == DOPTIX):
-                vc, integrator = denoiser.render_ui(integrator)
-                value_changed = value_changed or vc
-            elif (self.type == DOIDN):
-                vc, integrator = denoiser.render_ui(integrator)
-                value_changed = value_changed or vc
-            elif (self.type == DWSKPD):
-                vc, integrator = denoiser.render_ui(integrator)
-                value_changed = value_changed or vc
-            elif (self.type == DAFGSA):
+
+            if (self.type == DOIDN):
                 vc, integrator = denoiser.render_ui(integrator)
                 value_changed = value_changed or vc
             elif (self.type == DSIMPLE):
                 # TODO: same formulation as other denoisers
-                vc, integrator = denoiser.render_ui(integrator)
-                value_changed = value_changed or vc
-            elif (self.type == DANF):
-                vc, integrator = denoiser.render_ui(integrator)
-                value_changed = value_changed or vc
-            elif (self.type == CUDA_AA):
                 vc, integrator = denoiser.render_ui(integrator)
                 value_changed = value_changed or vc
             else:
@@ -216,9 +163,6 @@ class DenoiserWrap:
         return TYPES[self.type]
 
     def prepare_before_save(self, img: torch.tensor):
-        if self.type == DAFGSA or self.type == DWSKPD:
-            s = img.shape
-            img = img.permute(2, 0, 1).reshape(s)
         return img
 
     def set(self, **kwargs):

@@ -153,7 +153,7 @@ def render(config: dict, args: argparse.Namespace):
     if (args.denoise):
         from src.denoise.denoiser_wrap import DenoiserWrap
         denoiser_wrap = DenoiserWrap(scene=scene, ui=ui, type=5)
-        denoiser_wrap.type = 4  # DSIMPLE
+        denoiser_wrap.type = 1  # DSIMPLE
         # use_denoiser = True
 
     while not ui.should_close():

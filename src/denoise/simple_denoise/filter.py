@@ -294,6 +294,11 @@ class FilterTasks(ComputeTask):
         ktv: int = self.kernel_type.value
         vc, ktv = imgui.combo("kernel type", ktv, self.TYPES)
         self.kernel_type = KernelType(ktv)
+
+        if(ktv in [KernelType.NIS.value, KernelType.CUDA_AA.value]):
+            ktv = 0
+            self.kernel_type = KernelType(ktv)
+
         value_changed = value_changed or vc
 
         if self.need_kernel_size[ktv]:
