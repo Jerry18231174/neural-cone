@@ -87,9 +87,17 @@
 		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
 		<rgb name="k" value="9.22387, 6.26952, 4.837" />
 	</bsdf>
-	<bsdf type="dielectric" id="MaterialBSDF">
+	<!-- <bsdf type="dielectric" id="MaterialBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
+	</bsdf> -->
+	<bsdf type="roughplastic" id="MaterialBSDF">
+		<float name="alpha" value="0.01" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.1, 0.35, 0.2" />
 	</bsdf>
 	<bsdf type="diffuse" id="Pot3BSDF">
 		<rgb name="reflectance" value="0.8, 0.8, 0.8" />

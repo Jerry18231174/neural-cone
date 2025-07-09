@@ -592,13 +592,13 @@
 		</transform>
 		<ref id="BreadBinTopBSDF" />
 	</shape>
-	<shape type="ply" id="WineGlasses_0001">
+	<!-- <shape type="ply" id="WineGlasses_0001">
 		<string name="filename" value="merged_meshes/WineGlasses.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="WineGlassesBSDF" />
-	</shape>
+	</shape> -->
 	<shape type="ply" id="TableCross_0001">
 		<string name="filename" value="merged_meshes/TableCross.ply" />
 		<transform name="to_world">
@@ -853,14 +853,14 @@
 		</transform>
 		<ref id="MicrowaveBSDF" />
 	</shape>
-	<shape type="ply" id="MicrowaveGlass">
+	<!-- <shape type="ply" id="MicrowaveGlass">
 		<string name="filename" value="merged_meshes/MicrowaveGlass.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="MicrowaveGlassBSDF" />
-	</shape>
+	</shape> -->
 	<shape type="ply" id="MicrowaveDigital">
 		<string name="filename" value="merged_meshes/MicrowaveDigital.ply" />
 		<transform name="to_world">
@@ -1005,13 +1005,13 @@
 		</transform>
 		<ref id="BurnersTopBSDF" />
 	</shape>
-	<shape type="ply" id="CookerGlass">
+	<!-- <shape type="ply" id="CookerGlass">
 		<string name="filename" value="merged_meshes/CookerGlass.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="CookerGlassBSDF" />
-	</shape>
+	</shape> -->
 	<shape type="ply" id="BlindEnds_0001">
 		<string name="filename" value="merged_meshes/BlindEnds.ply" />
 		<transform name="to_world">
@@ -1094,13 +1094,13 @@
 		</transform>
 		<ref id="RadioMetalRingBSDF" />
 	</shape>
-	<shape type="ply" id="RadioGlass">
+	<!-- <shape type="ply" id="RadioGlass">
 		<string name="filename" value="merged_meshes/RadioGlass.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="RadioGlassBSDF" />
-	</shape>
+	</shape> -->
 	<shape type="ply" id="ChromeHandle">
 		<string name="filename" value="merged_meshes/ChromeHandle.ply" />
 		<transform name="to_world">

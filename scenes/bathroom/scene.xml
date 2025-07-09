@@ -105,9 +105,14 @@
 			<string name="filter_type" value="bilinear" />
 		</texture>
 	</bsdf>
-	<bsdf type="thindielectric" id="BulbGlassBSDF">
+	<!-- <bsdf type="thindielectric" id="BulbGlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
+	</bsdf> -->
+	<bsdf type="twosided" id="BulbGlassBSDF">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="1.0 1.0 1.0" />
+		</bsdf>
 	</bsdf>
 	<bsdf type="roughplastic" id="BlackPlasticBSDF">
 		<float name="alpha" value="0.2" />
@@ -259,7 +264,7 @@
 		</transform>
 		<ref id="LightBSDF" />
 		<emitter type="area">
-			<rgb name="radiance" value="30, 30, 30" />
+			<rgb name="radiance" value="10, 10, 10" />
 		</emitter>
 	<string name="filename" value="merged_meshes/Light.ply" /></shape>
 	<shape type="ply" id="BulbGlass_0001">
@@ -268,6 +273,9 @@
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="BulbGlassBSDF" />
+		<emitter type="area">
+			<rgb name="radiance" value="30, 25, 20" />
+		</emitter>
 	</shape>
 	<shape type="ply" id="BlackPlastic_0001">
 		<string name="filename" value="merged_meshes/BlackPlastic.ply" />

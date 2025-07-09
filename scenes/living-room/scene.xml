@@ -87,9 +87,17 @@
 	<bsdf type="diffuse" id="PaintingBackBSDF">
 		<rgb name="reflectance" value="0.26, 0.25, 0.14" />
 	</bsdf>
-	<bsdf type="dielectric" id="GlassBSDF">
+	<!-- <bsdf type="dielectric" id="GlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
+	</bsdf> -->
+	<bsdf type="roughplastic" id="GlassBSDF">
+		<float name="alpha" value="0.02" />
+		<string name="distribution" value="ggx" />
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.02, 0.12, 0.06" />
 	</bsdf>
 	<bsdf type="diffuse" id="PlantPotBSDF">
 		<rgb name="reflectance" value="0.1, 0.1, 0.1" />

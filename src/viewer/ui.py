@@ -192,18 +192,34 @@ class UI:
     def process_input(self):
         if glfw.get_key(self.window, glfw.KEY_ESCAPE) == glfw.PRESS:
             glfw.set_window_should_close(self.window, True)
+
+        # Camera controls
         if glfw.get_key(self.window, glfw.KEY_W) == glfw.PRESS:
-            self.camera.move(1, 1)
+            self.camera.move(0, 1)
         if glfw.get_key(self.window, glfw.KEY_S) == glfw.PRESS:
-            self.camera.move(1, -1)
+            self.camera.move(0, -1)
         if glfw.get_key(self.window, glfw.KEY_A) == glfw.PRESS:
             self.camera.move(2, 1)
         if glfw.get_key(self.window, glfw.KEY_D) == glfw.PRESS:
             self.camera.move(2, -1)
-        if glfw.get_key(self.window, glfw.KEY_Q) == glfw.PRESS:
-            self.camera.move(0, 1)
-        if glfw.get_key(self.window, glfw.KEY_E) == glfw.PRESS:
-            self.camera.move(0, -1)
+        if glfw.get_key(self.window, glfw.KEY_SPACE) == glfw.PRESS:
+            self.camera.move(1, 1)
+        if glfw.get_key(self.window, glfw.KEY_LEFT_CONTROL) == glfw.PRESS:
+            self.camera.move(1, -1)
+
+        if glfw.get_key(self.window, glfw.KEY_LEFT) == glfw.PRESS:
+            self.camera.rotate(-1, 0)
+        if glfw.get_key(self.window, glfw.KEY_RIGHT) == glfw.PRESS:
+            self.camera.rotate(1, 0)
+        if glfw.get_key(self.window, glfw.KEY_UP) == glfw.PRESS:
+            self.camera.rotate(0, 1)
+        if glfw.get_key(self.window, glfw.KEY_DOWN) == glfw.PRESS:
+            self.camera.rotate(0, -1)
+        
+        if glfw.get_key(self.window, glfw.KEY_O) == glfw.PRESS:
+            self.camera.zoom(10)
+        if glfw.get_key(self.window, glfw.KEY_I) == glfw.PRESS:
+            self.camera.zoom(-10)
 
         if glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS:
             xpos, ypos = glfw.get_cursor_pos(self.window)
