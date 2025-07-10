@@ -109,10 +109,8 @@
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 	</bsdf> -->
-	<bsdf type="twosided" id="BulbGlassBSDF">
-		<bsdf type="diffuse">
-			<rgb name="reflectance" value="1.0 1.0 1.0" />
-		</bsdf>
+	<bsdf type="diffuse" id="BulbGlassBSDF">
+		<rgb name="reflectance" value="1.0 1.0 1.0" />
 	</bsdf>
 	<bsdf type="roughplastic" id="BlackPlasticBSDF">
 		<float name="alpha" value="0.2" />

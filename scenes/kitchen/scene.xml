@@ -266,10 +266,16 @@
 		<boolean name="nonlinear" value="true" />
 		<rgb name="diffuse_reflectance" value="0.001373, 0.001373, 0.001373" />
 	</bsdf>
-	<bsdf type="dielectric" id="CookerGlassBSDF">
+	<!-- <bsdf type="dielectric" id="CookerGlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<rgb name="specular_transmittance" value="0, 0, 0" />
+	</bsdf> -->
+	<bsdf type="plastic" id="CookerGlassBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.01, 0.01, 0.01" />
 	</bsdf>
 	<bsdf type="roughconductor" id="CookerChromeBSDF">
 		<float name="alpha" value="0.1" />
@@ -301,10 +307,16 @@
 	<bsdf type="conductor" id="RadioDialLineBSDF">
 		<string name="material" value="none" />
 	</bsdf>
-	<bsdf type="dielectric" id="MicrowaveGlassBSDF">
+	<!-- <bsdf type="dielectric" id="MicrowaveGlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<rgb name="specular_transmittance" value="0, 0, 0" />
+	</bsdf> -->
+	<bsdf type="plastic" id="MicrowaveGlassBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.01, 0.01, 0.01" />
 	</bsdf>
 	<bsdf type="roughconductor" id="MicrowaveBSDF">
 		<float name="alpha" value="0.1" />
@@ -320,20 +332,26 @@
 		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />
 		<rgb name="k" value="9.22387, 6.26952, 4.837" />
 	</bsdf>
-	<bsdf type="dielectric" id="MicrowaveDigitalBSDF">
+	<!-- <bsdf type="dielectric" id="MicrowaveDigitalBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<rgb name="specular_transmittance" value="0, 0, 0" />
+	</bsdf> -->
+	<bsdf type="plastic" id="MicrowaveDigitalBSDF">
+		<float name="int_ior" value="1.5" />
+		<float name="ext_ior" value="1" />
+		<boolean name="nonlinear" value="true" />
+		<rgb name="diffuse_reflectance" value="0.01, 0.01, 0.01" />
 	</bsdf>
 	<bsdf type="diffuse" id="WindowFrameBSDF">
 		<rgb name="reflectance" value="0.572423, 0.572423, 0.572423" />
 	</bsdf>
-	<bsdf type="mask" id="BlindsBSDF">
-		<rgb name="opacity" value="0.612066, 0.612066, 0.612066" />
-		<bsdf type="diffuse">
+	<!-- <bsdf type="mask" id="BlindsBSDF">
+		<rgb name="opacity" value="0.612066, 0.612066, 0.612066" /> -->
+		<bsdf type="diffuse" id="BlindsBSDF">
 			<rgb name="reflectance" value="0.612066, 0.499505, 0.378676" />
 		</bsdf>
-	</bsdf>
+	<!-- </bsdf> -->
 	<bsdf type="diffuse" id="BlindStringKnobBSDF">
 		<rgb name="reflectance" value="0.578596, 0.578596, 0.578596" />
 	</bsdf>
@@ -853,14 +871,14 @@
 		</transform>
 		<ref id="MicrowaveBSDF" />
 	</shape>
-	<!-- <shape type="ply" id="MicrowaveGlass">
+	<shape type="ply" id="MicrowaveGlass">
 		<string name="filename" value="merged_meshes/MicrowaveGlass.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
 		<ref id="MicrowaveGlassBSDF" />
-	</shape> -->
+	</shape>
 	<shape type="ply" id="MicrowaveDigital">
 		<string name="filename" value="merged_meshes/MicrowaveDigital.ply" />
 		<transform name="to_world">
@@ -1005,13 +1023,13 @@
 		</transform>
 		<ref id="BurnersTopBSDF" />
 	</shape>
-	<!-- <shape type="ply" id="CookerGlass">
+	<shape type="ply" id="CookerGlass">
 		<string name="filename" value="merged_meshes/CookerGlass.ply" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="CookerGlassBSDF" />
-	</shape> -->
+	</shape>
 	<shape type="ply" id="BlindEnds_0001">
 		<string name="filename" value="merged_meshes/BlindEnds.ply" />
 		<transform name="to_world">

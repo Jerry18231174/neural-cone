@@ -302,11 +302,11 @@ class NeuralConeRadiosity(NeuralRadiosity):
         si: mi.SurfaceInteraction3f,
         scene: mi.Scene,
         precision=torch.float32,
-        seed: int = np.random.randint(0, 1000000)
     ) -> torch.Tensor:
         """
         Query the model with surface interaction
         """
+        seed = np.random.randint(0, 10000000)
         dr.eval(si)
         t0 = get_time()
 

@@ -130,7 +130,7 @@ def first_smooth(
             mask_out = bsdf.eval_null_transmission(si)
             mask_out = (mask_out.x > 0) | (mask_out.y > 0) | (mask_out.z > 0)
 
-            active &= si.is_valid() & (spec_only) & (depth < max_depth)
+            active &= si.is_valid() & (spec_only | mask_out) & (depth < max_depth)
 
             # Mask of rays that hit a null face
             null_face = ~si.is_valid() | (
