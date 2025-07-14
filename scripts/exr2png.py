@@ -30,8 +30,8 @@ def batch_convert(folder_in, folder_out, apply_srgb=True):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", required=True, help="Path to input EXR files")
-    parser.add_argument("--output_dir", required=True, help="Path to save PNGs")
+    parser.add_argument("-i", "--input_dir", type=str, required=True, help="Path to input EXR files")
+    parser.add_argument("-o", "--output_dir", type=str, default="out/demo", help="Path to save PNGs")
     args = parser.parse_args()
 
     batch_convert(args.input_dir, args.output_dir, apply_srgb=False)

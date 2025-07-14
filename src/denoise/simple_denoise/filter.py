@@ -6,7 +6,7 @@ from OpenGL.GL.ARB.pixel_buffer_object import *
 import imgui
 import numpy as np
 from enum import Enum
-from cuda import cudart
+from cuda.bindings import runtime as cudart
 import mitsuba as mi
 from integrator.mi_albedo_normal import BAlbedoNormalDepthIntegrator
 import time

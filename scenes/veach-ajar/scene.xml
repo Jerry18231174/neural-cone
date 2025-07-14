@@ -81,7 +81,7 @@
 		<rgb name="reflectance" value="0, 0, 0" />
 	</bsdf>
 	<bsdf type="roughconductor" id="Pot2BSDF">
-		<float name="alpha" value="0.15" />
+		<float name="alpha" value="0.01" />
 		<string name="distribution" value="ggx" />
 		<rgb name="specular_reflectance" value="1, 1, 1" />
 		<rgb name="eta" value="1.65746, 0.880369, 0.521229" />

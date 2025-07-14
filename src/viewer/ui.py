@@ -7,7 +7,7 @@ from imgui.integrations.glfw import GlfwRenderer
 import drjit as dr
 import mitsuba as mi
 
-from cuda import cudart
+from cuda.bindings import runtime as cudart
 
 import numpy as np
 import drjit as dr
