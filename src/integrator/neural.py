@@ -45,6 +45,8 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
                 color = self.model.render_lhs(si, scene, precision=self.precision)
             elif self.render_mode == "RHS":
                 color = self.model.render_rhs(si, scene, spp=self.spp, precision=self.precision)
+            elif self.render_mode == "visualize":
+                color = self.model.visualize(si, scene, radius_selection=self.spp, precision=self.precision)
             else:
                 raise ValueError("Invalid render mode:", self.render_mode)
 

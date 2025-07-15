@@ -239,7 +239,7 @@ def get_mc_itsc(
     ctx = mi.BSDFContext()
     bsdf_sample, bsdf_weight = si_rhs.bsdf().sample(
         ctx, si_rhs,
-        r_sampler.next_1d(),
+        r_sampler.next_1d() * 0,  # Force sampling the specular lobe
         r_sampler.next_2d(),
         active=True,
     )

@@ -212,24 +212,35 @@ class NeuralRadiosity(RadiosityPipeline):
     
     def render_rhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32, spp: int = 1):
         with torch.no_grad():
-            # Sample rhs interactions
             point_num = si_lhs.p.torch().shape[0]
-            lhs_rhs = LHSRHS(
-                scene=scene,
-                point_num=point_num,
-                dirs_per_point=spp
-            )
-            lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
-            lhs_rhs.to(device=self.device, dtype=precision)
-            si_rhs = lhs_rhs.si_bsdf
+            result = torch.zeros((point_num, 3), dtype=precision, device=self.device)
 
-            rhs_color = self.query_model(si_rhs, scene, precision=precision)
+            render_iter = (spp + 3) // 4
+            for i in range(render_iter):
+                iter_spp = min(4, spp - i * 4)
+                # Sample rhs interactions
+                lhs_rhs = LHSRHS(
+                    scene=scene,
+                    point_num=point_num,
+                    dirs_per_point=iter_spp
+                )
+                lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
+                lhs_rhs.to(device=self.device, dtype=precision)
+                si_rhs = lhs_rhs.si_bsdf
 
-            # Render rhs color
-            rhs_color = rhs_color.reshape(-1, spp, 3)
-            rhs_color = lhs_rhs.render(rhs_color, None)
+                rhs_color = self.query_model(si_rhs, scene, precision=precision)
 
-        return rhs_color
+                # Render rhs color
+                rhs_color = rhs_color.reshape(-1, iter_spp, 3)
+                rhs_color = lhs_rhs.render(rhs_color, None)
+
+                result += rhs_color * (iter_spp / spp)
+
+                dr.sync_device()
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
+
+        return result
 
 
 class NeuralConeRadiosity(NeuralRadiosity):
@@ -386,3 +397,27 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         return color
     
+    def visualize(self,
+        si: mi.SurfaceInteraction3f,
+        scene: mi.Scene,
+        precision=torch.float32,
+        radius_selection: int = 1
+    ) -> torch.Tensor:
+        """
+        Visualize the glossy model
+        """
+
+        radii = [0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+
+        dr.eval(si)
+
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+
+        radius = roughness * 0.0 + radii[radius_selection - 1]
+
+        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos, radius)
+        
+        pfilt_enc = torch.cat([pfilt_enc, pos, -dir, radius], dim=-1)
+        color = torch.abs(self.cone_mlp(pfilt_enc))
+
+        return color
