@@ -94,6 +94,15 @@ class RadiosityPipeline(L.LightningModule):
         nr_norm = (rhs_color + lhs_color).detach() / 2 + eps
         loss = torch.mean(((rhs_color - lhs_color) / nr_norm) ** 2) / ad_ratio
 
+        # Tone loss
+        lhs_tone_norm = torch.norm(lhs_color, dim=-1, keepdim=True)
+        rhs_tone_norm = torch.norm(rhs_color, dim=-1, keepdim=True)
+        lhs_tone = lhs_color / (lhs_tone_norm + eps)
+        rhs_tone = rhs_color / (rhs_tone_norm + eps)
+        tone_loss = torch.mean((lhs_tone - rhs_tone) ** 2) / ad_ratio
+
+        loss += tone_loss * self.pipeline_config["train"]["tone_loss_weight"]
+
         # Logging
         self.log("loss", loss.item(), prog_bar=True)
         self.log("real_step", self.global_step, prog_bar=True)

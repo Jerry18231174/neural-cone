@@ -11,7 +11,6 @@ import torch
 
 # Custom
 from src.util.progress_bar import find_best_ckpt
-from src.model.sdf import NGPSDF, GridSDF
 from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
 from src.integrator.neural import RadiosityIntegrator
 from src.integrator.path import *

@@ -93,8 +93,8 @@ def compute_metric(img, ref, type, discard=0.001):
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Compare Images")
-    parser.add_argument("img", type=str, default="hello.exr")
     parser.add_argument("ref", type=str, default="ref.exr")
+    parser.add_argument("img", type=str, default="hello.exr")
     parser.add_argument("metric", type=str, default="MAPE")
     
     args = parser.parse_args()

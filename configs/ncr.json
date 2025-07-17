@@ -2,7 +2,8 @@
     "train": {
         "epochs": 20000,
         "save_every": 500,
-        "learning_rate": 0.001
+        "learning_rate": 0.001,
+        "tone_loss_weight": 0.01
     },
     "render": {
     },
