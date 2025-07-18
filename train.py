@@ -134,7 +134,7 @@ def train(config: dict, args: argparse.Namespace):
         # Load model
         if config["model"]["name"] == "NR":
             model = NeuralRadiosity(config["model"]["ray"], config, scene)
-        elif config["model"]["name"] == "NCR":
+        elif config["model"]["name"][:3] == "NCR":
             # # Load SDF
             # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
             # sdf_model = GridSDF(config["model"]["sdf"], mesh_path)

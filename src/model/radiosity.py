@@ -10,7 +10,7 @@ import tinycudann as tcnn
 
 from src.module.basic import ShallowMLP
 from src.module.hash_grid import MultiresHashGrid
-from src.sample.lhs_rhs import LHSRHS, extract_input, get_mc_itsc
+from src.sample.lhs_rhs import LHSRHS, extract_input, get_mc_itsc, get_wr_itsc
 from src.model.kmeans import KMeans
 
 import drjit as dr
@@ -326,6 +326,20 @@ class NeuralConeRadiosity(NeuralRadiosity):
         """
         Query the model with surface interaction
         """
+        # Modify ncr.json cone["level_reduce"] from "Interp" to "Mean" for ablation
+        # return self.query_model_raw(si, scene, precision=precision)
+
+        return self.query_model_woCone(si, scene, precision=precision)
+
+    def query_model_raw(
+        self,
+        si: mi.SurfaceInteraction3f,
+        scene: mi.Scene,
+        precision=torch.float32,
+    ) -> torch.Tensor:
+        """
+        Query the model with surface interaction
+        """
         seed = np.random.randint(0, 10000000)
         dr.eval(si)
         t0 = get_time()
@@ -371,6 +385,8 @@ class NeuralConeRadiosity(NeuralRadiosity):
         t51 = get_time()
 
         pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, radius)
+        # # No layer interpolation
+        # pfilt_enc = self.pfilt_grid(pos_march, radius)
         t52 = get_time()
         pfilt_enc = torch.cat([
             pfilt_enc,
@@ -403,6 +419,54 @@ class NeuralConeRadiosity(NeuralRadiosity):
         # print("\tHashGrid:\t", t52-t51)
         # print("\tMLP:\t\t", t6-t52)
         # print("Merge:\t\t", t7-t6)
+
+        return color
+    
+    def query_model_woCone(
+        self,
+        si: mi.SurfaceInteraction3f,
+        scene: mi.Scene,
+        precision=torch.float32,
+    ) -> torch.Tensor:
+        """
+        Ablation without clustering (specular hit only)
+        """
+        seed = np.random.randint(0, 10000000)
+        dr.eval(si)
+
+        # Get color from neural radiosity
+        color = super().query_model(si, scene, precision=precision)
+
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+
+        # Mask & indices for glossy materials
+        glossy_mask = (roughness < 0.5).squeeze()
+
+        if not glossy_mask.any():
+            return color
+
+        # Get RHS interaction distance from Monte Carlo sampling
+        si_wr = get_wr_itsc(si, scene)
+        t_mc = si_wr.t.torch().to(device=self.device, dtype=precision)[glossy_mask][:, None]
+
+        # Compute query size
+        tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
+
+        # Glossy model inference
+        N_glossy = t_mc.shape[0]
+        cone_color = torch.zeros(N_glossy, 3, device=self.device, dtype=precision)
+        # [N, 1]
+        radius = (t_mc * tan_lobe)
+        # [N, 3: xyz]
+        pos_march = (pos[glossy_mask] + t_mc * dir[glossy_mask])
+
+        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, radius)
+        pfilt_enc = torch.cat([pfilt_enc, pos_march, -dir[glossy_mask], radius], dim=-1)
+        cone_color = torch.abs(self.cone_mlp(pfilt_enc))
+
+        # Merge with neural radiosity
+        color[glossy_mask] = self.merge_mlp(torch.cat(
+            [color[glossy_mask], cone_color, roughness[glossy_mask], albedo[glossy_mask]], dim=-1))
 
         return color
     
