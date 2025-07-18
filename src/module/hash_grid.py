@@ -102,7 +102,7 @@ class MultiresHashGrid(nn.Module):
                 "-DBASE_RESOLUTION={}".format(self.config["base_resolution"]),
                 "-DPER_LEVEL_SCALE={}".format(self.config["per_level_scale"]),
                 "-DLAYER_REDUCE={}".format(self.config["level_reduce"].upper()),
-                "-DINTERP_PARALLEL=4",
+                "-DINTERP_RATIO={}".format(1 / self.config["sample_ratio"]),
             ],
             verbose=True,
         )
@@ -190,7 +190,7 @@ class MultiresHashGrid(nn.Module):
         if self.use_kernel and active_side is None:
             return self.cuda_kernel.forward_layer_interp(pos.contiguous(), size.contiguous(), self.grids)
 
-        sample_ratio = 0.33
+        sample_ratio = 1 / self.config["sample_ratio"]
 
         coarse_most = size > (sample_ratio / self.resolutions[0])
         fine_most = size < (sample_ratio / self.resolutions[-1])

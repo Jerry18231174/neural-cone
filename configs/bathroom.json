@@ -2,19 +2,20 @@
     "train": {
         "epochs": 20000,
         "save_every": 500,
-        "learning_rate": 0.001
+        "learning_rate": 0.001,
+        "tone_loss_weight": 0.01
     },
     "render": {
     },
     "model": {
         "name": "NCR",
-        "cone_threshold": 0.1,
+        "cone_threshold": 0.5,
         "n_glossy_rhs": 128,
         "n_glossy_max_samples": 4,
         "n_kmeans_iter": 10,
         "ray": {
             "name": "HashGrid",
-            "n_levels": 6,
+            "n_levels": 4,
             "n_features_per_level": 8,
             "log2_hashmap_size": 19,
             "base_resolution": 32,
@@ -38,21 +39,13 @@
             "n_hidden_dims": 64,
             "n_hidden_layers": 2,
             "output_activation": "Squareplus",
+            "sample_ratio": 2,
             "use_tcnn": true
-        },
-        "sdf": {
-            "name": "Grid",
-            "method": "mesh2sdf",
-            "resolution": 256,
-            "interpolation": "Linear"
         }
     },
     "sample": {
         "n_points": 65536,
         "n_dirs_per_point": 32,
-        "l_unscented": 2,
-        "sdf": {
-            "batch_size": 262144
-        }
+        "from_poses": true
     }
 }
