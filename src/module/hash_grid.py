@@ -195,10 +195,10 @@ class MultiresHashGrid(nn.Module):
 
         coarse_most = size > (sample_ratio / self.resolutions[0])
         fine_most = size < (sample_ratio / self.resolutions[-1])
-        # print("sample_ratio:", sample_ratio)
-        # print("total:", size.size())
-        # print("coarse:", coarse_most.sum() / size.size(0))
-        # print("fine:", fine_most.sum() / size.size(0))
+        print("sample_ratio:", sample_ratio)
+        print("total:", size.size())
+        print("coarse:", coarse_most.sum() / size.size(0))
+        print("fine:", fine_most.sum() / size.size(0))
 
         for i in range(self.config["n_levels"]):
             resolution = self.resolutions[i]
