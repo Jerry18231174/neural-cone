@@ -12,6 +12,7 @@ from src.module.basic import ShallowMLP
 from src.module.hash_grid import MultiresHashGrid
 from src.sample.lhs_rhs import LHSRHS, extract_input, get_mc_itsc
 from src.model.kmeans import KMeans
+from src.util.tan_lobe import LobeLUT
 
 import drjit as dr
 import mitsuba as mi
@@ -25,24 +26,6 @@ def get_model_bbox(scene: mi.Scene) -> torch.Tensor:
     bbox = scene.bbox()
     bbox = torch.tensor([bbox.min - 1e-1, bbox.max + 1e-1], dtype=torch.float32)
     return bbox
-
-
-def tan_ggx_lobe(alpha: torch.Tensor, k: float = 0.5) -> torch.Tensor:
-    """
-    Tangent of GGX lobe with roughness alpha and threshold k
-    """
-    sqrt_k = np.sqrt(k)
-    sq_a = alpha ** 2
-
-    assert (alpha >= 0).all(), "Roughness must be positive"
-    assert (sq_a < sqrt_k).all(), "Roughness must be less than threshold"
-
-    # Numerator
-    numer = torch.sqrt((1 - sqrt_k) * sq_a * (sqrt_k - sq_a))
-    # Denominator
-    denom = sqrt_k + (sqrt_k - 2) * sq_a
-
-    return numer / denom
 
 
 def get_time():
@@ -260,9 +243,14 @@ class NeuralConeRadiosity(NeuralRadiosity):
     def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene) -> None:
         super(NeuralConeRadiosity, self).__init__(config["ray"], pipeline_config, scene)
         self.config = config["cone"]
-        self.k = config["cone_threshold"]
         self.n_glossy_rhs = config["n_glossy_rhs"]
         self.n_glossy_samples = config["n_glossy_max_samples"]
+
+        self.tan_lobe_lut = LobeLUT(
+            alpha=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
+            cone_threshold=config["cone_threshold"],
+            integrand_type="GGX"
+        )
         
         self.kMeans = KMeans(
             n_clusters=self.n_glossy_samples,
@@ -354,7 +342,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         t4 = get_time()
 
         # Compute query size
-        tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
+        tan_lobe = self.tan_lobe_lut(roughness[glossy_mask])
         
         t5 = get_time()
 
