@@ -48,6 +48,8 @@ def find_theta_k(alpha, target_ratio=0.95, integrand=GGX):
     """
     Find the theta_k value for a given alpha and target energy ratio.
     """
+    if alpha < 1e-6:
+        return 0.0
     return bisect(lambda t: energy_ratio(t, alpha, integrand=integrand) - target_ratio, 1e-12, np.pi / 2 - 1e-12)
 
 
@@ -122,7 +124,7 @@ if __name__ == "__main__":
     # print(f"Tangent value: {tan_value:.6f}")
 
     # Example usage of LobeLUT
-    alpha_values = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
+    alpha_values = [0, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
     lut = LobeLUT(alpha_values, cone_threshold=0.99, integrand_type="GGX")
 
     print("LUT values:", lut.lut)

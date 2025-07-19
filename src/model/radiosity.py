@@ -247,7 +247,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         self.n_glossy_samples = config["n_glossy_max_samples"]
 
         self.tan_lobe_lut = LobeLUT(
-            alpha=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
+            alpha=[0.0, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
             cone_threshold=config["cone_threshold"],
             integrand_type="GGX"
         )
