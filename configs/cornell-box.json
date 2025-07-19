@@ -39,7 +39,7 @@
             "n_hidden_dims": 64,
             "n_hidden_layers": 2,
             "output_activation": "Squareplus",
-            "sample_ratio": 2,
+            "sample_ratio": 3,
             "use_tcnn": true
         }
     },
