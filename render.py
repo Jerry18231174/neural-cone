@@ -51,7 +51,7 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             pipeline_config=config,
             scene=scene
         )
-    elif config["model"]["name"] == "NCR":
+    elif config["model"]["name"][:3] == "NCR":
         model = NeuralConeRadiosity.load_from_checkpoint(
             ckpt_path,
             config=config["model"],
