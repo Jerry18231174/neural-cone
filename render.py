@@ -260,8 +260,9 @@ def render(config: dict, args: argparse.Namespace):
         if save_img:
             dr.sync_device()
             torch.cuda.synchronize()
-            mi.util.write_bitmap(args.output, img)
-            print("Image saved to", args.output)
+            out_dir = os.path.join("out", args.scene, args.config + ".exr")
+            mi.util.write_bitmap(out_dir, img)
+            print("Image saved to", out_dir)
             save_img = False
 
         if (function_wrap.get_should_calc_error()):
