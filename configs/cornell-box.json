@@ -32,20 +32,20 @@
             "n_levels": 8,
             "n_features_per_level": 8,
             "log2_hashmap_size": 19,
-            "base_resolution": 4,
-            "per_level_scale": 2.0,
+            "base_resolution": 32,
+            "per_level_scale": 1.414,
             "interpolation": "Linear",
             "level_reduce": "Interp",
             "n_hidden_dims": 64,
             "n_hidden_layers": 2,
             "output_activation": "Squareplus",
-            "sample_ratio": 1,
+            "sample_ratio": 3,
             "use_tcnn": true
         }
     },
     "sample": {
         "n_points": 65536,
         "n_dirs_per_point": 32,
-        "from_poses": true
+        "from_poses": false
     }
 }

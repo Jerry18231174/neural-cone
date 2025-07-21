@@ -135,12 +135,6 @@ def train(config: dict, args: argparse.Namespace):
         if config["model"]["name"] == "NR":
             model = NeuralRadiosity(config["model"]["ray"], config, scene)
         elif config["model"]["name"][:3] == "NCR":
-            # # Load SDF
-            # mesh_path = os.path.join("scenes", args.scene, "raw_meshes", "merged.ply")
-            # sdf_model = GridSDF(config["model"]["sdf"], mesh_path)
-            # sdf_cache_path = os.path.join("out", args.scene, "sdf_cache.npy")
-            # sdf_model.compute(sdf_cache_path)
-
             model = NeuralConeRadiosity(config["model"], config, scene)
         model.train()
 
@@ -154,7 +148,7 @@ def train(config: dict, args: argparse.Namespace):
                 pipeline_config=config,
                 scene=scene
             )
-        elif config["model"]["name"] == "NCR":
+        elif config["model"]["name"][:3] == "NCR":
             model = NeuralConeRadiosity.load_from_checkpoint(
                 ckpt_path,
                 config=config["model"],

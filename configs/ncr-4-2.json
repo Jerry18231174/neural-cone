@@ -8,7 +8,7 @@
     "render": {
     },
     "model": {
-        "name": "NCR",
+        "name": "NCR-4-2",
         "cone_threshold": 0.99,
         "n_glossy_rhs": 128,
         "n_glossy_max_samples": 4,
@@ -39,7 +39,7 @@
             "n_hidden_dims": 64,
             "n_hidden_layers": 2,
             "output_activation": "Squareplus",
-            "sample_ratio": 1,
+            "sample_ratio": 2,
             "use_tcnn": true
         }
     },

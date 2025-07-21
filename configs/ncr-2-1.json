@@ -8,7 +8,7 @@
     "render": {
     },
     "model": {
-        "name": "NCR",
+        "name": "NCR-2-1",
         "cone_threshold": 0.99,
         "n_glossy_rhs": 128,
         "n_glossy_max_samples": 4,
@@ -32,7 +32,7 @@
             "n_levels": 8,
             "n_features_per_level": 8,
             "log2_hashmap_size": 19,
-            "base_resolution": 4,
+            "base_resolution": 2,
             "per_level_scale": 2.0,
             "interpolation": "Linear",
             "level_reduce": "Interp",
