@@ -9,7 +9,7 @@
     },
     "model": {
         "name": "NCR-woInterp",
-        "cone_threshold": 0.1,
+        "cone_threshold": 0.99,
         "n_glossy_rhs": 128,
         "n_glossy_max_samples": 4,
         "n_kmeans_iter": 10,
@@ -32,29 +32,20 @@
             "n_levels": 8,
             "n_features_per_level": 8,
             "log2_hashmap_size": 19,
-            "base_resolution": 32,
-            "per_level_scale": 1.414,
+            "base_resolution": 4,
+            "per_level_scale": 2.0,
             "interpolation": "Linear",
             "level_reduce": "Mean",
             "n_hidden_dims": 64,
             "n_hidden_layers": 2,
             "output_activation": "Squareplus",
+            "sample_ratio": 2,
             "use_tcnn": true
-        },
-        "sdf": {
-            "name": "Grid",
-            "method": "mesh2sdf",
-            "resolution": 256,
-            "interpolation": "Linear"
         }
     },
     "sample": {
         "n_points": 65536,
         "n_dirs_per_point": 32,
-        "from_poses": true,
-        "l_unscented": 2,
-        "sdf": {
-            "batch_size": 262144
-        }
+        "from_poses": false
     }
 }

@@ -438,7 +438,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         t_mc = si_wr.t.torch().to(device=self.device, dtype=precision)[glossy_mask][:, None]
 
         # Compute query size
-        tan_lobe = tan_ggx_lobe(roughness[glossy_mask], self.k)
+        tan_lobe = self.tan_lobe_lut(roughness[glossy_mask])
 
         # Glossy model inference
         N_glossy = t_mc.shape[0]
