@@ -15,4 +15,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/active_mitsuba.sh
 
 # Start training
-torchrun --nproc_per_node=$NUM_GPUS train.py "$@"
+torchrun --nproc_per_node=$NUM_GPUS --master_port=2950$CUDA_VISIBLE_DEVICES train.py "$@"
