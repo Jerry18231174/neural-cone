@@ -123,7 +123,7 @@ def render(config: dict, args: argparse.Namespace):
     width, height = camera.width, camera.height
 
     # Initialize UI
-    ui = UI(width, height, camera)
+    ui = UI(width, height, camera, bbox=scene.bbox())
 
     # UI variables
     int_type = 0
