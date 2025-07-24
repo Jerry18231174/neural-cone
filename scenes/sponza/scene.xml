@@ -436,16 +436,25 @@
 		</transform>
 		<ref id="DragonBSDF" />
 	</shape>
-	<emitter type="envmap">
+	<!-- <emitter type="envmap">
 		<transform name="to_world">
 			<matrix value="-4.37114e-008 0 1 0 0 1 0 0 -1 0 -4.37114e-008 0 0 0 0 1" />
 		</transform>
 		<string name="filename" value="textures/Sky 19.exr" />
-		<float name="scale" value="10"/>
-	</emitter>
+		<float name="scale" value="1"/>
+	</emitter> -->
 	<bsdf type="diffuse" id="LightBSDF">
 		<rgb name="reflectance" value="0, 0, 0" />
 	</bsdf>
+	<shape type="rectangle" id="Light0">
+		<transform name="to_world">
+			<matrix value="5 0 0 0  0 0 -1 12  0 1 0 -0.3  0 0 0 1" />
+		</transform>
+		<ref id="LightBSDF" />
+		<emitter type="area">
+			<rgb name="radiance" value="300, 200, 100" />
+		</emitter>
+	</shape>
 	<shape type="rectangle" id="Light1">
 		<transform name="to_world">
 			<matrix value="0.3 0 0 11  0 0 -0.3 3.8  0 0.3 0 4  0 0 0 1" />

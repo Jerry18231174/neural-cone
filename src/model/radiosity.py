@@ -338,7 +338,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         t3 = get_time()
 
         # Aggregate MC points into fixed number of gaussians
-        t_fix, n_fix, var_fix = self.kMeans.fit(t_mc, precision=precision)
+        t_fix, n_fix, std_fix = self.kMeans.fit(t_mc, precision=precision)
         t4 = get_time()
 
         # Compute query size
@@ -351,7 +351,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=self.device, dtype=precision)
         # [N, n_clusters]
         active = n_fix >= 1
-        radius = (t_fix * tan_lobe + var_fix)[active][:, None] / 2
+        radius = (t_fix * tan_lobe + std_fix)[active][:, None] / 2
         # radius = (t_fix * tan_lobe + var_fix).reshape(-1)[:, None] / 2
         # [N, n_clusters, 3: xyz]
         pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :])[active]
@@ -394,7 +394,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         return color
     
-    def visualize(self,
+    def visualize_glo(self,
         si: mi.SurfaceInteraction3f,
         scene: mi.Scene,
         precision=torch.float32,
@@ -418,3 +418,59 @@ class NeuralConeRadiosity(NeuralRadiosity):
         color = torch.abs(self.cone_mlp(pfilt_enc))
 
         return color
+
+    def visualize(self,
+        si: mi.SurfaceInteraction3f,
+        scene: mi.Scene,
+        precision=torch.float32,
+        radius_selection: int = 1
+    ) -> torch.Tensor:
+        """
+        Visualize the glossy model
+        """
+        seed = np.random.randint(0, 10000000)
+        dr.eval(si)
+
+        # Get color from neural radiosity
+        color = super().query_model(si, scene, precision=precision)
+
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+
+        # Mask & indices for glossy materials
+        glossy_mask = (roughness < 0.5).squeeze()
+
+        if not glossy_mask.any():
+            return color
+
+        # Get RHS interaction distance from Monte Carlo sampling
+        si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
+        t_mc = si_glo_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
+        
+        t_valid = ~torch.isnan(t_mc) & ~torch.isinf(t_mc)
+        t_mc = torch.nan_to_num(t_mc, nan=0.0, posinf=0.0, neginf=0.0)
+
+        t_mean = torch.sum(t_mc * t_valid, dim=-1, keepdim=True) / (torch.sum(t_valid, dim=-1, keepdim=True) + 1e-6)
+        t_var = torch.sum((t_mc - t_mean) ** 2 * t_valid, dim=-1, keepdim=True) / (torch.sum(t_valid, dim=-1, keepdim=True) + 1e-6)
+        t_std = torch.sqrt(t_var)
+
+        # Aggregate MC points into fixed number of gaussians
+        t_fix, n_fix, std_fix = self.kMeans.fit(t_mc, precision=precision)
+        # Compute query size
+        tan_lobe = self.tan_lobe_lut(roughness[glossy_mask])
+
+        result = torch.zeros_like(color)
+        if radius_selection == 1:
+            # Coefficient of Variation of all
+            result[glossy_mask] = t_std / (t_mean + 1e-6)
+        elif radius_selection == 2:
+            # Average CV within each cluster
+            result[glossy_mask] = torch.sum(std_fix / (t_fix + 1e-6) * n_fix, dim=-1, keepdim=True) / self.n_glossy_rhs
+        elif radius_selection == 3:
+            # Radius of all
+            result[glossy_mask] = (t_mean * tan_lobe + t_std) / 2
+        elif radius_selection == 4:
+            # Average cluster radius
+            cradius = (t_fix * tan_lobe + std_fix) / 2
+            result[glossy_mask] = torch.sum(cradius * n_fix, dim=-1, keepdim=True) / self.n_glossy_rhs
+
+        return result
