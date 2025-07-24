@@ -284,10 +284,10 @@ class NeuralConeRadiosity(NeuralRadiosity):
             )
 
         self.merge_mlp = ShallowMLP(
-            in_channels=6+1+3,
+            in_channels=3+3+3+1+1+3,  # diffuse + reflection + transmission + wr + roughness + albedo
             out_channels=3,
-            hidden_layers=1,
-            hidden_channels=32,
+            hidden_layers=2,
+            hidden_channels=64,
             activation=nn.ReLU(),
             output_activation=nn.Softplus()
         )
@@ -316,7 +316,6 @@ class NeuralConeRadiosity(NeuralRadiosity):
         """
         seed = np.random.randint(0, 10000000)
         dr.eval(si)
-        t0 = get_time()
 
         # Get color from neural radiosity
         color = super().query_model(si, scene, precision=precision)
@@ -325,72 +324,85 @@ class NeuralConeRadiosity(NeuralRadiosity):
         pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
 
         # Mask & indices for glossy materials
-        glossy_mask = (roughness < 0.5).squeeze()
+        diel_mask = mi.has_flag(si.bsdf().flags(), mi.BSDFFlags.Transmission).torch()
+        diel_mask = (diel_mask & (roughness < 0.5).squeeze()).bool()  # Only consider roughdielectric materials
 
-        if not glossy_mask.any():
+        if not diel_mask.any():
             return color
 
-        # Get RHS interaction distance from Monte Carlo sampling
-        t2 = get_time()
-        si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
-        t21 = get_time()
-        t_mc = si_glo_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
-        t3 = get_time()
+        # Get reflection RHS interaction distance from Monte Carlo sampling
+        si_r_rhs, _, _ = get_mc_itsc(si, scene, diel_mask, self.n_glossy_rhs, seed=seed)
+        t_r_mc = si_r_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
+
+        # Sample smooth refraction interactions
+        l_sampler: mi.Sampler = mi.load_dict({"type": "independent"})
+        l_sampler.seed(seed, color.shape[0])
+        ctx = mi.BSDFContext()
+        bsdf_sample, _ = si.bsdf().sample(
+            ctx, si,
+            l_sampler.next_1d() * 0 + 1,  # Force sampling the refraction lobe
+            l_sampler.next_2d() * 0,  # Force sampling the specular direction
+            active=True,
+        )
+        ray = si.spawn_ray(si.to_world(bsdf_sample.wo))
+        si_t = scene.ray_intersect(ray)
+        bsdf_sample, _ = si_t.bsdf().sample(
+            ctx, si_t,
+            l_sampler.next_1d() * 0 + 1,  # Force sampling the refraction lobe
+            l_sampler.next_2d() * 0,  # Force sampling the specular direction
+            active=True,
+        )
+        pos_t = si_t.p.torch()
+        dir_t = si_t.to_world(bsdf_sample.wo).torch()
+
+        # Get transmission RHS interaction distance from Monte Carlo sampling
+        si_t_rhs, _, _ = get_mc_itsc(si_t, scene, diel_mask, self.n_glossy_rhs, seed=seed)
+        t_t_mc = si_t_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
 
         # Aggregate MC points into fixed number of gaussians
-        t_fix, n_fix, std_fix = self.kMeans.fit(t_mc, precision=precision)
-        t4 = get_time()
+        t_r, n_r, std_r = self.kMeans.fit(t_r_mc, precision=precision)
+        t_t, n_t, std_t = self.kMeans.fit(t_t_mc, precision=precision)
 
         # Compute query size
-        tan_lobe = self.tan_lobe_lut(roughness[glossy_mask])
+        tan_lobe = self.tan_lobe_lut(roughness[diel_mask])
         
-        t5 = get_time()
-
         # Glossy model inference
-        N_glossy = t_fix.shape[0]
-        cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=self.device, dtype=precision)
+        N_diel = t_r.shape[0]
+        cone_color_r = torch.zeros(N_diel, self.n_glossy_samples, 3, device=self.device, dtype=precision)
+        cone_color_t = torch.zeros(N_diel, self.n_glossy_samples, 3, device=self.device, dtype=precision)
         # [N, n_clusters]
-        active = n_fix >= 1
-        radius = (t_fix * tan_lobe + std_fix)[active][:, None] / 2
-        # radius = (t_fix * tan_lobe + var_fix).reshape(-1)[:, None] / 2
+        active_r = n_r >= 1
+        active_t = n_t >= 1
+        radius_r = (t_r * tan_lobe + std_r)[active_r][:, None] / 2
+        radius_t = (t_t * tan_lobe + std_t)[active_t][:, None] / 2
         # [N, n_clusters, 3: xyz]
-        pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :])[active]
-        # pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :]).reshape(-1, 3)
-        t51 = get_time()
+        pos_r = (pos[diel_mask][:, None, :] + t_r[:, :, None] * dir[diel_mask][:, None, :])[active_r]
+        pos_t = (pos_t[diel_mask][:, None, :] + t_t[:, :, None] * dir_t[diel_mask][:, None, :])[active_t]
 
-        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, radius)
-        t52 = get_time()
-        pfilt_enc = torch.cat([
-            pfilt_enc,
-            pos_march,
-            -dir[glossy_mask][:, None, :].repeat(1, self.n_glossy_samples, 1)[active],
-            # -dir[glossy_mask].repeat(self.n_glossy_samples, 1),
-            radius
+        enc_r = self.pfilt_grid.forward_layer_interp(pos_r, radius_r)
+        enc_t = self.pfilt_grid.forward_layer_interp(pos_t, radius_t)
+        enc_r = torch.cat([
+            enc_r, pos_r,
+            -dir[diel_mask][:, None, :].repeat(1, self.n_glossy_samples, 1)[active_r],
+            radius_r
         ], dim=-1)
-        march_color = torch.abs(self.cone_mlp(pfilt_enc))
+        enc_t = torch.cat([
+            enc_t, pos_t,
+            -dir_t[diel_mask][:, None, :].repeat(1, self.n_glossy_samples, 1)[active_t],
+            radius_t
+        ], dim=-1)
+        color_r = torch.abs(self.cone_mlp(enc_r))
+        color_t = torch.abs(self.cone_mlp(enc_t))
 
-        cone_color[active] = march_color * (n_fix / self.n_glossy_rhs)[active][:, None]
-        # cone_color = march_color.reshape(-1, self.n_glossy_samples, 3) * (n_fix / self.n_glossy_rhs)[..., None]
-        cone_color = torch.sum(cone_color, dim=1)
+        cone_color_r[active_r] = color_r * (n_r / self.n_glossy_rhs)[active_r][:, None]
+        cone_color_t[active_t] = color_t * (n_t / self.n_glossy_rhs)[active_t][:, None]
+        cone_color_r = torch.sum(cone_color_r, dim=1)
+        cone_color_t = torch.sum(cone_color_t, dim=1)
 
         # Merge with neural radiosity
-        t6 = get_time()
-        color[glossy_mask] = self.merge_mlp(torch.cat(
-            [color[glossy_mask], cone_color, roughness[glossy_mask], albedo[glossy_mask]], dim=-1))
-        t7 = get_time()
-        # print("######################")
-        # print("Glossy size:\t", glossy_mask.sum())
-        # print("NR time:\t", t1-t0)
-        # print("Extract input:\t", t2-t1)
-        # print("MC sampling:\t", t21-t2)
-        # print("MC torch:\t", t3-t21)
-        # print("KMeans:\t\t", t4-t3)
-        # print("TanLobe:\t", t5-t4)
-        # print("Model:\t\t", t6-t5)
-        # print("\tPreproc:\t", t51-t5)
-        # print("\tHashGrid:\t", t52-t51)
-        # print("\tMLP:\t\t", t6-t52)
-        # print("Merge:\t\t", t7-t6)
+        color[diel_mask] = self.merge_mlp(torch.cat(
+            [color[diel_mask], cone_color_r, cone_color_t, si.wi[2].torch()[diel_mask, None],
+             roughness[diel_mask], albedo[diel_mask]], dim=-1))
 
         return color
     

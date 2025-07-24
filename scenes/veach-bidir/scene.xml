@@ -41,12 +41,15 @@
 		<string name="distribution" value="ggx" />
 	</bsdf>
 	<bsdf type="twosided" id="LampBSDF">
-		<bsdf type="roughconductor">
+		<!-- <bsdf type="roughconductor">
 			<float name="alpha" value="0.25" />
 			<string name="distribution" value="beckmann" />
 			<rgb name="specular_reflectance" value="1, 1, 1" />
 			<rgb name="eta" value="2.8656, 2.11918, 1.94008" />
 			<rgb name="k" value="3.03233, 2.05611, 1.61629" />
+		</bsdf> -->
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.55, 0.57, 0.58" />
 		</bsdf>
 	</bsdf>
 	<bsdf type="twosided" id="WoodBSDF">
