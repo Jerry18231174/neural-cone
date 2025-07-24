@@ -63,7 +63,7 @@
 		<ref id="vaseBSDF" />
 	</shape>
 	<bsdf type="roughplastic" id="vase_hangingBSDF">
-		<float name="alpha" value="0.2" />
+		<float name="alpha" value="0.05" />
 		<string name="distribution" value="ggx" />
 		<float name="int_ior" value="50.0" />
 		<float name="ext_ior" value="1.0" />
@@ -91,7 +91,7 @@
 		</texture>
 		<bsdf type="twosided">
 			<bsdf type="roughplastic">
-				<float name="alpha" value="0.2" />
+				<float name="alpha" value="0.02" />
 				<string name="distribution" value="ggx" />
 				<float name="int_ior" value="50.0" />
 				<float name="ext_ior" value="1.0" />
@@ -252,7 +252,7 @@
 		<ref id="column_cBSDF" />
 	</shape>
 	<bsdf type="roughplastic" id="floorBSDF">
-		<float name="alpha" value="0.14285714285714285" />
+		<float name="alpha" value="0.05" />
 		<string name="distribution" value="ggx" />
 		<float name="int_ior" value="70.0" />
 		<float name="ext_ior" value="1.0" />
@@ -300,7 +300,7 @@
 		<ref id="ceilingBSDF" />
 	</shape>
 	<bsdf type="roughplastic" id="archBSDF">
-		<float name="alpha" value="0.25" />
+		<float name="alpha" value="0.1" />
 		<string name="distribution" value="ggx" />
 		<float name="int_ior" value="40.0" />
 		<float name="ext_ior" value="1.0" />
@@ -319,7 +319,7 @@
 		<ref id="archBSDF" />
 	</shape>
 	<bsdf type="roughplastic" id="bricksBSDF">
-		<float name="alpha" value="1.0" />
+		<float name="alpha" value="0.2" />
 		<string name="distribution" value="ggx" />
 		<float name="int_ior" value="10.0" />
 		<float name="ext_ior" value="1.0" />
