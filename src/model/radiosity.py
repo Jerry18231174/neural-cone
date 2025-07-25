@@ -320,7 +320,6 @@ class NeuralConeRadiosity(NeuralRadiosity):
         # Get color from neural radiosity
         color = super().query_model(si, scene, precision=precision)
 
-        t1 = get_time()
         pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
 
         # Mask & indices for glossy materials
@@ -356,7 +355,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
         dir_t = si_t.to_world(bsdf_sample.wo).torch()
 
         # Get transmission RHS interaction distance from Monte Carlo sampling
-        si_t_rhs, _, _ = get_mc_itsc(si_t, scene, diel_mask, self.n_glossy_rhs, seed=seed)
+        si_t_rhs, _, _ = get_mc_itsc(si_t, scene, diel_mask, self.n_glossy_rhs, seed=seed, refraction=True)
         t_t_mc = si_t_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
 
         # Aggregate MC points into fixed number of gaussians

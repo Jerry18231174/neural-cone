@@ -28,17 +28,28 @@
 			<rgb name="reflectance" value="0.5, 0.5, 0.5" />
 		</bsdf>
 	</bsdf>
+	<bsdf type="diffuse" id="CheckerBSDF">
+		<texture name="reflectance" type="checkerboard">
+			<rgb name="color1" value="0.63, 0.065, 0.05" />
+			<rgb name="color0" value="0.14, 0.45, 0.091" />
+			<transform name="to_uv">
+				<scale x="10.000000" y="10.000000" />
+			</transform>
+		</texture>
+	</bsdf>
 	<bsdf type="roughdielectric" id="GlassBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<float name="alpha" value="0.05" />
 		<string name="distribution" value="ggx" />
+		<boolean name="sample_visible" value="false" />
 	</bsdf>
 	<bsdf type="roughdielectric" id="BunnyBSDF">
 		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1" />
 		<float name="alpha" value="0.1" />
 		<string name="distribution" value="ggx" />
+		<boolean name="sample_visible" value="false" />
 	</bsdf>
 	<bsdf type="twosided" id="LampBSDF">
 		<!-- <bsdf type="roughconductor">
@@ -162,7 +173,7 @@
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<boolean name="face_normals" value="true" />
-		<ref id="DiffuseBSDF" />
+		<ref id="CheckerBSDF" />
 	</shape>
 	<shape type="ply" id="Bunny_0001">
 		<string name="filename" value="models/bun_zipper.ply" />
