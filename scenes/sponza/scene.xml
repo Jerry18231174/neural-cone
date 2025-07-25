@@ -62,10 +62,10 @@
 		</transform>
 		<ref id="vaseBSDF" />
 	</shape>
-	<bsdf type="roughplastic" id="vase_hangingBSDF">
+	<!-- <bsdf type="roughplastic" id="vase_hangingBSDF">
 		<float name="alpha" value="0.05" />
 		<string name="distribution" value="ggx" />
-		<float name="int_ior" value="50.0" />
+		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1.0" />
 		<boolean name="nonlinear" value="true" />
 		<texture name="specular_reflectance" type="bitmap">
@@ -76,6 +76,13 @@
 			<string name="filename" value="textures/vase_hanging.png" />
 			<string name="filter_type" value="bilinear" />
 		</texture>
+	</bsdf> -->
+	<bsdf type="roughconductor" id="vase_hangingBSDF">
+		<float name="alpha" value="0.05" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1, 1, 1" />
+		<rgb name="eta" value="2.911, 2.949, 2.584" />
+		<rgb name="k" value="3.089, 2.931, 2.767" />
 	</bsdf>
 	<shape type="obj" id="vase_hanging">
 		<string name="filename" value="models/vase_hanging.obj" />
@@ -93,7 +100,7 @@
 			<bsdf type="roughplastic">
 				<float name="alpha" value="0.02" />
 				<string name="distribution" value="ggx" />
-				<float name="int_ior" value="50.0" />
+				<float name="int_ior" value="1.5" />
 				<float name="ext_ior" value="1.0" />
 				<boolean name="nonlinear" value="true" />
 				<rgb name="specular_reflectance" value="0.1 0.1 0.1" />
@@ -102,6 +109,13 @@
 					<string name="filter_type" value="bilinear" />
 				</texture>
 			</bsdf>
+			<!-- <bsdf type="roughconductor">
+				<float name="alpha" value="0.05" />
+				<string name="distribution" value="ggx" />
+				<rgb name="specular_reflectance" value="1, 1, 1" />
+				<rgb name="eta" value="2.911, 2.949, 2.584" />
+				<rgb name="k" value="3.089, 2.931, 2.767" />
+			</bsdf> -->
 		</bsdf>
 	</bsdf>
 	<shape type="obj" id="chain">
@@ -130,13 +144,13 @@
 			<string name="filter_type" value="bilinear" />
 		</texture>
 	</bsdf>
-	<!-- <shape type="obj" id="fabric_c">
+	<shape type="obj" id="fabric_c">
 		<string name="filename" value="models/fabric_c.obj" />
 		<transform name="to_world">
 			<matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
 		</transform>
 		<ref id="fabric_cBSDF" />
-	</shape> -->
+	</shape>
 	<bsdf type="diffuse" id="fabric_gBSDF">
 		<texture name="reflectance" type="bitmap">
 			<string name="filename" value="textures/sponza_curtain_blue_diff.png" />
@@ -252,9 +266,9 @@
 		<ref id="column_cBSDF" />
 	</shape>
 	<bsdf type="roughplastic" id="floorBSDF">
-		<float name="alpha" value="0.05" />
+		<float name="alpha" value="0.02" />
 		<string name="distribution" value="ggx" />
-		<float name="int_ior" value="70.0" />
+		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1.0" />
 		<boolean name="nonlinear" value="true" />
 		<texture name="specular_reflectance" type="bitmap">
@@ -302,7 +316,7 @@
 	<bsdf type="roughplastic" id="archBSDF">
 		<float name="alpha" value="0.1" />
 		<string name="distribution" value="ggx" />
-		<float name="int_ior" value="40.0" />
+		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1.0" />
 		<boolean name="nonlinear" value="true" />
 		<rgb name="specular_reflectance" value="0.1 0.1 0.1" />
@@ -321,7 +335,7 @@
 	<bsdf type="roughplastic" id="bricksBSDF">
 		<float name="alpha" value="0.2" />
 		<string name="distribution" value="ggx" />
-		<float name="int_ior" value="10.0" />
+		<float name="int_ior" value="1.5" />
 		<float name="ext_ior" value="1.0" />
 		<boolean name="nonlinear" value="true" />
 		<texture name="specular_reflectance" type="bitmap">
@@ -452,7 +466,7 @@
 		</transform>
 		<ref id="LightBSDF" />
 		<emitter type="area">
-			<rgb name="radiance" value="300, 200, 100" />
+			<rgb name="radiance" value="100, 100, 100" />
 		</emitter>
 	</shape>
 	<shape type="rectangle" id="Light1">
