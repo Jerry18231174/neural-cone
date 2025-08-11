@@ -19,13 +19,13 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 
-def render_image(render_vars: dict, script: dict, args: argparse.Namespace) -> torch.Tensor:
+def render_image(render_vars: dict, args: argparse.Namespace) -> torch.Tensor:
     # Load render variables
     scene: mi.Scene = render_vars["scene"]
     params = mi.traverse(scene)
     
-    spp = script["spp"]
-    render_mode = script["render_mode"]
+    spp = args.spp
+    render_mode = args.render_mode
 
     if render_mode == "LHS":
         integrator = render_vars["integrators"][args.config]
@@ -42,7 +42,7 @@ def render_image(render_vars: dict, script: dict, args: argparse.Namespace) -> t
         raise ValueError("Invalid render mode:", render_mode)
     
     # Load camera
-    with np.load(script["cameras"][0], allow_pickle=True) as data:
+    with np.load(os.path.join("out", args.scene, "camera.npz"), allow_pickle=True) as data:
         extrinsics = data["extrinsics"]
         intrinsics = data["intrinsics"].item()
     camera = FPSCamera(intrinsics, extrinsics, speed=1)
@@ -64,7 +64,7 @@ def render_image(render_vars: dict, script: dict, args: argparse.Namespace) -> t
     img = img / iter_num
     
     # Save image
-    image_path = os.path.join("out", "{}.exr".format(script["name"]))
+    image_path = os.path.join("out", "{}.exr".format(args.output))
     mi.util.write_bitmap(image_path, img)
 
 
@@ -73,9 +73,11 @@ def parse_args():
     Parse command line arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--script", type=str, default="visualize")
     parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
+    parser.add_argument("-r", "--render_mode", type=str, default="PT", choices=["LHS", "RHS", "PT"])
+    parser.add_argument("-p", "--spp", type=int, default=102400)
+    parser.add_argument("-o", "--output", type=str, default="test")
     parser.add_argument("-m", "--model_ckpt", type=str, default=None)
     parser.add_argument("-H", "--half_precision", type=bool, default=False)
     return parser.parse_args()
@@ -89,10 +91,6 @@ if __name__ == "__main__":
     with open(os.path.join("configs", args.config + ".json"), "r") as f:
         config = json.load(f)
     
-    # Load video script
-    with open(os.path.join("configs", args.script + ".json"), "r") as f:
-        script = json.load(f)
-    
     # Render
     render_vars = load_render_vars(config, args)
-    render_image(render_vars, script, args)
+    render_image(render_vars, args)

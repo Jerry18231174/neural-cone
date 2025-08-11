@@ -1,0 +1,8 @@
+{
+    "name": "Reference",
+    "fps": 30,
+    "duration": 4,
+    "spp": 1024,
+    "render_mode": "PT",
+    "denoise": "Oidn"
+}
