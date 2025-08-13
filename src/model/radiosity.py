@@ -10,7 +10,7 @@ import tinycudann as tcnn
 
 from src.module.basic import ShallowMLP
 from src.module.hash_grid import MultiresHashGrid
-from src.sample.lhs_rhs import LHSRHS, extract_input, get_mc_itsc
+from src.sample.lhs_rhs import LHSRHS, extract_input, get_mc_itsc, first_non_transmit
 from src.model.kmeans import KMeans
 from src.util.tan_lobe import LobeLUT
 
@@ -284,10 +284,10 @@ class NeuralConeRadiosity(NeuralRadiosity):
             )
 
         self.merge_mlp = ShallowMLP(
-            in_channels=3+3+3+1+1+3,  # diffuse + reflection + transmission + wr + roughness + albedo
+            in_channels=3+3+1+3,  # diffuse + reflection + roughness + albedo
             out_channels=3,
-            hidden_layers=2,
-            hidden_channels=64,
+            hidden_layers=1,
+            hidden_channels=32,
             activation=nn.ReLU(),
             output_activation=nn.Softplus()
         )
@@ -305,7 +305,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
             self.pfilt_grid.use_kernel = False
         return self
 
-    def query_model(
+    def query_model_old(
         self,
         si: mi.SurfaceInteraction3f,
         scene: mi.Scene,
@@ -404,6 +404,67 @@ class NeuralConeRadiosity(NeuralRadiosity):
              roughness[diel_mask], albedo[diel_mask]], dim=-1))
 
         return color
+    
+    def query_model(
+        self,
+        si: mi.SurfaceInteraction3f,
+        scene: mi.Scene,
+        precision=torch.float32,
+    ) -> torch.Tensor:
+        """
+        Query the model with surface interaction
+        """
+        seed = np.random.randint(0, 10000000)
+        dr.eval(si)
+
+        # Get color from neural radiosity
+        color = super().query_model(si, scene, precision=precision)
+
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+
+        # Mask & indices for glossy materials
+        diel_mask = mi.has_flag(si.bsdf().flags(), mi.BSDFFlags.Transmission).torch().bool()
+
+        if not diel_mask.any():
+            return color
+
+        # Gather dielectric interactions
+        indices = torch.nonzero(diel_mask).squeeze().to(dtype=torch.int32)
+        diel_size = indices.shape[0]
+        indices = dr.repeat(mi.Int(indices), self.n_glossy_rhs)
+
+        r_sampler: mi.Sampler = mi.load_dict({"type": "independent"})
+        r_sampler.seed(seed, diel_size * self.n_glossy_rhs)
+
+        si_diel = dr.gather(mi.SurfaceInteraction3f, si, indices)
+        si_diel = first_non_transmit(scene, r_sampler, si_diel)
+
+        pos_diel = si_diel.p.torch().reshape(-1, self.n_glossy_rhs, 3)
+        pos_diel = torch.where(
+            si_diel.is_valid().torch().reshape(-1, self.n_glossy_rhs, 1).bool(),
+            pos_diel, torch.ones_like(pos_diel) * float('inf')
+        )
+        dir_diel = si_diel.to_world(si_diel.wi).torch().reshape(-1, self.n_glossy_rhs, 3)
+        pos_cluster, n_cluster, radius, dir_cluster = self.kMeans.fit_3d(pos_diel, dir=dir_diel, precision=precision)
+
+        # Glossy model inference
+        cone_color = torch.zeros(diel_size, self.n_glossy_samples, 3, device=self.device, dtype=precision)
+        # [N, n_clusters]
+        active = (n_cluster >= 1).squeeze()
+
+        enc = self.pfilt_grid.forward_layer_interp(pos_cluster[active], radius[active])
+        enc = torch.cat([enc, pos_cluster[active], dir_cluster[active], radius[active]], dim=-1)
+        glo_color = torch.abs(self.cone_mlp(enc))
+
+        cone_color[active] = glo_color * (n_cluster / self.n_glossy_rhs)[active]
+        cone_color = torch.sum(cone_color, dim=1)
+
+        # Merge with neural radiosity
+        color[diel_mask] = self.merge_mlp(torch.cat(
+            [color[diel_mask], cone_color, roughness[diel_mask], albedo[diel_mask]], dim=-1))
+        
+        return color
+        
     
     def visualize_glo(self,
         si: mi.SurfaceInteraction3f,

@@ -1,7 +1,7 @@
 import torch
 
 from src.model.radiosity import NeuralRadiosity
-from src.sample.lhs_rhs import first_smooth, first_smooth_dnr
+from src.sample.lhs_rhs import first_smooth
 
 import drjit as dr
 import mitsuba as mi

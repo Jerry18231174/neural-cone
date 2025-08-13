@@ -9,74 +9,48 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 
-def first_smooth_dnr(
+def first_non_transmit(
     scene: mi.Scene,
     sampler: mi.Sampler,
-    si_or_ray: Union[mi.SurfaceInteraction3f, mi.Ray3f],
+    si: mi.SurfaceInteraction3f,
     active: bool = True
 ) -> tuple[mi.SurfaceInteraction3f, mi.Color3f, bool]:
 
     with dr.suspend_grad():
 
-        final_si: mi.SurfaceInteraction3f = dr.zeros(mi.SurfaceInteraction3f)
+        final_si: mi.SurfaceInteraction3f = mi.SurfaceInteraction3f(si)
         active = mi.Bool(active)
-        throughput = mi.Color3f(1.0)
-        spec_mask = mi.Bool(False)
-        depth = mi.UInt32(0)
-        null_face = mi.Bool(True)
-
-        si: mi.SurfaceInteraction3f = dr.zeros(mi.SurfaceInteraction3f)
-        if isinstance(si_or_ray, mi.Ray3f):
-            si = scene.ray_intersect(si_or_ray, active)
-        elif isinstance(si_or_ray, mi.SurfaceInteraction3f):
-            si = si_or_ray
-
+        si = mi.SurfaceInteraction3f(si)
         bsdf_ctx = mi.BSDFContext()
 
-        loop = mi.Loop(
-            "first smooth surface",
-            lambda: (
-                sampler,
-                si,
-                final_si,
-                active,
-                throughput,
-                spec_mask,
-                depth,
-                null_face
-            )
+        # First hit (Sample both reflection and transmission)
+        bsdf: mi.BSDF = si.bsdf()
+        final_si[active] = si
+
+        bsdf_sample, _ = bsdf.sample(
+            bsdf_ctx, si, sampler.next_1d(), sampler.next_2d(), active
         )
+        ray = si.spawn_ray(si.to_world(bsdf_sample.wo))
+        si = scene.ray_intersect(ray, active)
 
-        max_depth = 16
-        loop.set_max_iterations(max_depth)
+        # Second hit (Only sample transmission)
+        bsdf: mi.BSDF = si.bsdf()
+        final_si[active] = si
 
-        while loop(active):
+        # Disable reflections of the first hit
+        active &= bsdf_sample.wo[2] < 0
+        active &= si.is_valid() & mi.has_flag(bsdf.flags(), mi.BSDFFlags.Transmission)
 
-            bsdf: mi.BSDF = si.bsdf()
-            final_si[active] = si
+        bsdf_sample, _ = bsdf.sample(
+            bsdf_ctx, si, sampler.next_1d() * 0 + 1, sampler.next_2d(), active
+        )
+        ray = si.spawn_ray(si.to_world(bsdf_sample.wo))
+        si = scene.ray_intersect(ray, active)
 
-            spec_mask |= mi.has_flag(bsdf.flags(), mi.BSDFFlags.Delta) & mi.has_flag(
-                bsdf.flags(), mi.BSDFFlags.BackSide)
+        # Third hit (Only sample transmission)
+        final_si[active] = si
 
-            null_face &= mi.has_flag(bsdf.flags(), mi.BSDFFlags.Null) | (
-                ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.BackSide) & (
-                    si.wi.z < 0)
-            )
-
-            active &= si.is_valid() & ~null_face & (depth < max_depth)
-            active &= ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.Smooth)
-
-            bsdf_sample, bsdf_weight = bsdf.sample(
-                bsdf_ctx, si, sampler.next_1d(), sampler.next_2d(), active
-            )
-
-            ray = si.spawn_ray(si.to_world(bsdf_sample.wo))
-            throughput[active] *= bsdf_weight
-            depth[si.is_valid()] += 1
-
-            si = scene.ray_intersect(ray, active)
-
-    return final_si, throughput, null_face, spec_mask
+    return final_si
 
 
 def first_smooth(
