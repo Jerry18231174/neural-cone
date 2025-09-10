@@ -474,3 +474,52 @@ class NeuralConeRadiosity(NeuralRadiosity):
             result[glossy_mask] = torch.sum(cradius * n_fix, dim=-1, keepdim=True) / self.n_glossy_rhs
 
         return result
+
+class VarRhoNCR(NeuralConeRadiosity):
+    """
+    NCR with variable roughness
+    """
+    def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene) -> None:
+        super(VarRhoNCR, self).__init__(config, pipeline_config, scene)
+        self.rho_dict: dict = pipeline_config["anim_vars"]
+        self.params: mi.SceneParameters = mi.traverse(scene)
+
+    def set_rho(self, v: dict) -> dict:
+        """
+        Set the rho values for different materials
+        """
+        result = {}
+
+        for key, val in self.rho_dict.items():
+            assert isinstance(val, list)
+
+            if len(val) == 2:
+                # Linear mapping
+                rho = v[key] * (val[1] - val[0]) + val[0]
+            elif len(val) == 3:
+                # Exponential mapping
+                rho = val[0] * val[1] ** (v[key] * val[2])
+            else:
+                raise ValueError("Rho value must be a list of length 2 or 3.")
+            
+            result[key] = rho
+
+            self.params[key] = mi.Float(rho)
+
+        self.params.update()
+
+        return result
+
+    def forward(self, lhs_rhs: LHSRHS) -> torch.Tensor:
+        """
+        Query the model with lhs and rhs interactions
+        """
+
+        rand_dict = {}
+        rand_vals = np.random.rand(len(self.rho_dict))
+        for i, key in enumerate(self.rho_dict.keys()):
+            rand_dict[key] = rand_vals[i]
+
+        self.set_rho(rand_dict)
+
+        return super().forward(lhs_rhs)

@@ -11,7 +11,7 @@ import torch
 
 # Custom
 from src.util.progress_bar import find_best_ckpt
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
+from src.model.radiosity import *
 from src.integrator.neural import RadiosityIntegrator
 from src.integrator.path import *
 from src.integrator.g_buffer import *
@@ -58,6 +58,13 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             pipeline_config=config,
             scene=scene
         )
+    elif config["model"]["name"] == "VarRho":
+        model = VarRhoNCR.load_from_checkpoint(
+            ckpt_path,
+            config=config["model"],
+            pipeline_config=config,
+            scene=scene
+        )
     elif config["model"]["name"] == "NULL":
         model = torch.nn.Module()
     print("Restoring model from", ckpt_path)
@@ -96,6 +103,7 @@ def load_render_vars(config: dict, args: argparse.Namespace):
 
     return {
         "scene": scene,
+        "params": params,
         "integrators": {
             args.config: nr_integrator,
             "path": path_integrator,
@@ -113,7 +121,7 @@ def render(config: dict, args: argparse.Namespace):
     # Load render variables
     render_vars = load_render_vars(config, args)
     scene: mi.Scene = render_vars["scene"]
-    params = mi.traverse(scene)
+    params: mi.SceneParameters = render_vars["params"]
     nr_integrator = render_vars["integrators"][args.config]
     path_integrator = render_vars["integrators"]["path"]
     depth_integrator = render_vars["integrators"]["depth"]
@@ -136,6 +144,11 @@ def render(config: dict, args: argparse.Namespace):
     load_camera = False
 
     camera_id = 0
+
+    anim_vars = {}
+    if "anim_vars" in config:
+        for key, val in config["anim_vars"].items():
+            anim_vars[key] = 0.0
 
     rfilter_idx = None
     if(args.box_filter):
@@ -211,6 +224,17 @@ def render(config: dict, args: argparse.Namespace):
                 if vc:
                     empty_cache()
                 update_frame = update_frame or vc
+
+            imgui.tree_pop()
+        
+        if imgui.tree_node("Variable Parameters", imgui.TREE_NODE_DEFAULT_OPEN):
+
+            for key in anim_vars.keys():
+                val = params[key].numpy()
+                _, anim_vars[key] = imgui.slider_float(key + ": " + str(val), anim_vars[key], 0.0, 1.0)
+
+            if isinstance(nr_integrator.model, VarRhoNCR):
+                nr_integrator.model.set_rho(anim_vars)
 
             imgui.tree_pop()
         

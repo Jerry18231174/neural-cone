@@ -18,7 +18,7 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 # Custom
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity
+from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, VarRhoNCR
 from src.dataset.camera import CameraDataset
 from src.util.progress_bar import StepRichProgressBar, find_best_ckpt
 
@@ -136,6 +136,8 @@ def train(config: dict, args: argparse.Namespace):
             model = NeuralRadiosity(config["model"]["ray"], config, scene)
         elif config["model"]["name"][:3] == "NCR":
             model = NeuralConeRadiosity(config["model"], config, scene)
+        elif config["model"]["name"] == "VarRho":
+            model = VarRhoNCR(config["model"], config, scene)
         model.train()
 
         trainer.fit(model, train_dataloaders=data_loader)
@@ -155,6 +157,14 @@ def train(config: dict, args: argparse.Namespace):
                 pipeline_config=config,
                 scene=scene
             )
+        elif config["model"]["name"] == "VarRho":
+            model = VarRhoNCR.load_from_checkpoint(
+                ckpt_path,
+                config=config["model"],
+                pipeline_config=config,
+                scene=scene
+            )
+        model.train()
         
         trainer.fit(model, ckpt_path=ckpt_path, train_dataloaders=data_loader)
     
