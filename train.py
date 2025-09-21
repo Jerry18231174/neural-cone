@@ -18,7 +18,7 @@ import mitsuba as mi
 mi.set_variant("cuda_rgb")
 
 # Custom
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, VarRhoNCR
+from src.model.radiosity import *
 from src.dataset.camera import CameraDataset
 from src.util.progress_bar import StepRichProgressBar, find_best_ckpt
 
@@ -84,6 +84,12 @@ def train(config: dict, args: argparse.Namespace):
 
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
+    
+    # Load animation
+    anim = None
+    if os.path.exists(os.path.join("scenes", args.scene, "animation.json")):
+        with open(os.path.join("scenes", args.scene, "animation.json"), "r") as f:
+            anim = json.load(f)
 
     # Tensorboard logger
     logger = TensorBoardLogger(
@@ -136,8 +142,10 @@ def train(config: dict, args: argparse.Namespace):
             model = NeuralRadiosity(config["model"]["ray"], config, scene)
         elif config["model"]["name"][:3] == "NCR":
             model = NeuralConeRadiosity(config["model"], config, scene)
-        elif config["model"]["name"] == "VarRho":
-            model = VarRhoNCR(config["model"], config, scene)
+        elif config["model"]["name"] == "DNR":
+            model = DynamicNeuralRadiosity(config["model"]["ray"], config, scene, anim)
+        elif config["model"]["name"] == "DNCR":
+            model = DynamicNeuralConeRadiosity(config["model"], config, scene, anim)
         model.train()
 
         trainer.fit(model, train_dataloaders=data_loader)
@@ -157,12 +165,21 @@ def train(config: dict, args: argparse.Namespace):
                 pipeline_config=config,
                 scene=scene
             )
-        elif config["model"]["name"] == "VarRho":
-            model = VarRhoNCR.load_from_checkpoint(
+        elif config["model"]["name"] == "DNR":
+            model = DynamicNeuralRadiosity.load_from_checkpoint(
+                ckpt_path,
+                config=config["model"]["ray"],
+                pipeline_config=config,
+                scene=scene,
+                animation=anim
+            )
+        elif config["model"]["name"] == "DNCR":
+            model = DynamicNeuralConeRadiosity.load_from_checkpoint(
                 ckpt_path,
                 config=config["model"],
                 pipeline_config=config,
-                scene=scene
+                scene=scene,
+                animation=anim
             )
         model.train()
         

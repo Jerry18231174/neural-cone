@@ -1,0 +1,61 @@
+{
+    "train": {
+        "epochs": 20000,
+        "save_every": 500,
+        "learning_rate": 0.0002,
+        "tone_loss_weight": 0.01
+    },
+    "render": {
+    },
+    "model": {
+        "name": "DNCR",
+        "cone_threshold": 0.99,
+        "n_glossy_rhs": 128,
+        "n_glossy_max_samples": 4,
+        "n_kmeans_iter": 10,
+        "ray": {
+            "name": "HashGrid",
+            "n_levels": 6,
+            "n_features_per_level": 8,
+            "log2_hashmap_size": 19,
+            "base_resolution": 32,
+            "per_level_scale": 2.0,
+            "interpolation": "Linear",
+            "level_reduce": "Concat",
+            "n_hidden_dims": 512,
+            "n_hidden_layers": 4,
+            "output_activation": "Squareplus",
+            "use_tcnn": true
+        },
+        "var": {
+            "otype": "HashGrid",
+            "n_dims_to_encode": 2,
+            "n_levels": 6,
+            "n_features_per_level": 8,
+            "log2_hashmap_size": 19,
+            "base_resolution": 32,
+            "per_level_scale": 2.0,
+            "interpolation": "Linear"
+        },
+        "cone": {
+            "name": "HashGrid",
+            "n_levels": 8,
+            "n_features_per_level": 8,
+            "log2_hashmap_size": 19,
+            "base_resolution": 4,
+            "per_level_scale": 2.0,
+            "interpolation": "Linear",
+            "level_reduce": "Interp",
+            "n_hidden_dims": 256,
+            "n_hidden_layers": 3,
+            "output_activation": "Squareplus",
+            "sample_ratio": 2,
+            "use_tcnn": true
+        }
+    },
+    "sample": {
+        "n_points": 65536,
+        "n_dirs_per_point": 32,
+        "from_poses": true
+    }
+}

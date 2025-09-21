@@ -1,0 +1,25 @@
+<scene version="2.1.0">
+	<default name="spp" value="512"/>
+	<default name="resx" value="960"/>
+	<default name="resy" value="540"/>
+
+	<sensor type="perspective">
+		<string name="fov_axis" value="x"/>
+		<float name="fov" value="49.134342"/>
+		<float name="near_clip" value="0.100000"/>
+		<float name="far_clip" value="100.000000"/>
+		<transform name="to_world">
+			<rotate x="1" angle="-144.74005500373596"/>
+			<rotate y="1" angle="-46.20003816865364"/>
+			<rotate z="1" angle="-179.99997768819966"/>
+			<translate value="1.883903 1.847565 1.809089"/>
+		</transform>
+		<sampler type="independent">
+			<integer name="sample_count" value="$spp"/>
+		</sampler>
+		<film type="hdrfilm">
+			<integer name="width" value="$resx"/>
+			<integer name="height" value="$resy"/>
+		</film>
+	</sensor>
+</scene>

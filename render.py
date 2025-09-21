@@ -11,6 +11,7 @@ import torch
 
 # Custom
 from src.util.progress_bar import find_best_ckpt
+from src.util.dscene import set_anim_vars
 from src.model.radiosity import *
 from src.integrator.neural import RadiosityIntegrator
 from src.integrator.path import *
@@ -34,6 +35,12 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     # Load scene
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
     params = mi.traverse(scene)
+    
+    # Load animation
+    anim = None
+    if os.path.exists(os.path.join("scenes", args.scene, "animation.json")):
+        with open(os.path.join("scenes", args.scene, "animation.json"), "r") as f:
+            anim = json.load(f)
 
     # Load model
     ckpt_dir = os.path.join("out", args.scene, "checkpoints", config["model"]["name"])
@@ -58,12 +65,21 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             pipeline_config=config,
             scene=scene
         )
-    elif config["model"]["name"] == "VarRho":
-        model = VarRhoNCR.load_from_checkpoint(
+    elif config["model"]["name"] == "DNR":
+        model = DynamicNeuralRadiosity.load_from_checkpoint(
+            ckpt_path,
+            config=config["model"]["ray"],
+            pipeline_config=config,
+            scene=scene,
+            animation=anim
+        )
+    elif config["model"]["name"] == "DNCR":
+        model = DynamicNeuralConeRadiosity.load_from_checkpoint(
             ckpt_path,
             config=config["model"],
             pipeline_config=config,
-            scene=scene
+            scene=scene,
+            animation=anim
         )
     elif config["model"]["name"] == "NULL":
         model = torch.nn.Module()
@@ -112,6 +128,7 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             "normal": normal_integrator,
         },
         "camera": camera,
+        "animation": anim,
     }
 
 def render(config: dict, args: argparse.Namespace):
@@ -122,6 +139,7 @@ def render(config: dict, args: argparse.Namespace):
     render_vars = load_render_vars(config, args)
     scene: mi.Scene = render_vars["scene"]
     params: mi.SceneParameters = render_vars["params"]
+    animation = render_vars["animation"]
     nr_integrator = render_vars["integrators"][args.config]
     path_integrator = render_vars["integrators"]["path"]
     depth_integrator = render_vars["integrators"]["depth"]
@@ -146,8 +164,8 @@ def render(config: dict, args: argparse.Namespace):
     camera_id = 0
 
     anim_vars = {}
-    if "anim_vars" in config:
-        for key, val in config["anim_vars"].items():
+    if animation is not None:
+        for key in animation.keys():
             anim_vars[key] = 0.0
 
     rfilter_idx = None
@@ -230,11 +248,14 @@ def render(config: dict, args: argparse.Namespace):
         if imgui.tree_node("Variable Parameters", imgui.TREE_NODE_DEFAULT_OPEN):
 
             for key in anim_vars.keys():
-                val = params[key].numpy()
-                _, anim_vars[key] = imgui.slider_float(key + ": " + str(val), anim_vars[key], 0.0, 1.0)
+                # val = params[key].numpy()
+                _, anim_vars[key] = imgui.slider_float(key, anim_vars[key], 0.0, 1.0)
 
-            if isinstance(nr_integrator.model, VarRhoNCR):
-                nr_integrator.model.set_rho(anim_vars)
+            if animation is not None:
+                set_anim_vars(params, animation, anim_vars)
+                v = np.array(list(anim_vars.values()), dtype=np.float32)
+                if isinstance(nr_integrator.model, DynamicNeuralRadiosity):
+                    nr_integrator.model.update_vars(v)
 
             imgui.tree_pop()
         

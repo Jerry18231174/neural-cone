@@ -13,6 +13,7 @@ from src.module.hash_grid import MultiresHashGrid
 from src.sample.lhs_rhs import LHSRHS, extract_input, get_mc_itsc
 from src.model.kmeans import KMeans
 from src.util.tan_lobe import LobeLUT
+from src.util.dscene import set_anim_vars
 
 import drjit as dr
 import mitsuba as mi
@@ -475,51 +476,321 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         return result
 
-class VarRhoNCR(NeuralConeRadiosity):
+
+class DynamicNeuralRadiosity(RadiosityPipeline):
     """
-    NCR with variable roughness
+    Dynamic Neural Radiosity model
     """
-    def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene) -> None:
-        super(VarRhoNCR, self).__init__(config, pipeline_config, scene)
-        self.rho_dict: dict = pipeline_config["anim_vars"]
+
+    def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene, animation: dict = None) -> None:
+        super(DynamicNeuralRadiosity, self).__init__(pipeline_config, scene)
+        self.anim_conf: dict = animation if animation is not None else {}
+        print("self.device", self.device)
+        self.anim_vars: torch.Tensor = torch.zeros(len(self.anim_conf), device=self.device)
         self.params: mi.SceneParameters = mi.traverse(scene)
 
-    def set_rho(self, v: dict) -> dict:
-        """
-        Set the rho values for different materials
-        """
-        result = {}
+        self.hash_grid = MultiresHashGrid(config, self.bbox, twosided=False)
 
-        for key, val in self.rho_dict.items():
-            assert isinstance(val, list)
-
-            if len(val) == 2:
-                # Linear mapping
-                rho = v[key] * (val[1] - val[0]) + val[0]
-            elif len(val) == 3:
-                # Exponential mapping
-                rho = val[0] * val[1] ** (v[key] * val[2])
-            else:
-                raise ValueError("Rho value must be a list of length 2 or 3.")
+        if config["use_tcnn"]:
+            vars_config = {
+                "otype": "Composite",
+                "reduction": "concatenation",
+                "nested": []
+            }
+            for _ in range(len(self.anim_conf) * 3):
+                vars_config["nested"].append(pipeline_config["model"]["var"])
             
-            result[key] = rho
+            self.vars_grid = tcnn.Encoding(len(self.anim_conf) * 2 * 3, vars_config)
 
-            self.params[key] = mi.Float(rho)
+            network_config = {
+                "otype": "FullyFusedMLP" if config["n_hidden_dims"] <= 128 else "CutlassMLP",
+                "n_hidden_layers": config["n_hidden_layers"],
+                "n_neurons": config["n_hidden_dims"],
+                "activation": "ReLU",
+                "output_activation": config["output_activation"],
+            }
+            self.mlp = tcnn.Network(
+                n_input_dims=config["n_features_per_level"] * config["n_levels"] + \
+                    self.vars_grid.n_output_dims + 3 * 4 + 1 + len(self.anim_conf),
+                n_output_dims=3,
+                network_config=network_config
+            )
+        else:
+            self.mlp = ShallowMLP(
+                # encoding + pos + normal + wr + albedo + roughness
+                in_channels=config["n_features_per_level"] * config["n_levels"] + 3 * 4 + 1 + len(self.anim_conf),
+                out_channels=3,
+                hidden_layers=config["n_hidden_layers"],
+                hidden_channels=config["n_hidden_dims"],
+                activation=nn.ReLU(),
+                output_activation=nn.Identity() if config["output_activation"] == "None" else nn.Softplus()
+            )
 
-        self.params.update()
+    def update_vars(self, anim_vals: np.ndarray):
+        """
+        Update the animation variables
+        """
+        anim_dict = {}
+        for i, key in enumerate(self.anim_conf.keys()):
+            anim_dict[key] = anim_vals[i]
 
-        return result
+        set_anim_vars(self.params, self.anim_conf, anim_dict)
 
+        self.anim_vars = torch.from_numpy(anim_vals).to(device=self.device)
+
+    def train(self, mode: bool = True):
+        """
+        Set the model to training mode
+        """
+        super().train(mode)
+        if not mode:
+            self.hash_grid.load_kernel("NR_hash_grid_cuda")
+        else:
+            self.hash_grid.use_kernel = False
+        return self
+    
     def forward(self, lhs_rhs: LHSRHS) -> torch.Tensor:
         """
         Query the model with lhs and rhs interactions
         """
+        rand_vals = np.random.rand(len(self.anim_conf))
+        self.update_vars(rand_vals)
 
-        rand_dict = {}
-        rand_vals = np.random.rand(len(self.rho_dict))
-        for i, key in enumerate(self.rho_dict.keys()):
-            rand_dict[key] = rand_vals[i]
+        si_lhs = lhs_rhs.si_lhs
+        si_rhs = lhs_rhs.si_bsdf
 
-        self.set_rho(rand_dict)
+        lhs_color = self.query_model(si_lhs, lhs_rhs.scene, self.anim_vars)
+        with torch.no_grad():
+            rhs_color = self.query_model(si_rhs, lhs_rhs.scene, self.anim_vars)
 
-        return super().forward(lhs_rhs)
+        # Render rhs color
+        rhs_color = rhs_color.reshape(-1, lhs_rhs.dirs_per_point, 3)
+        rhs_color = lhs_rhs.render(rhs_color, None)
+
+        return {
+            "lhs": lhs_color,
+            "rhs": rhs_color
+        }
+
+    def query_model(self, si: mi.SurfaceInteraction3f, scene: mi.Scene, v: torch.Tensor, precision=torch.float32) -> torch.Tensor:
+        """
+        Query the model with surface interaction
+        """
+        t0 = get_time()
+
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+
+        t1 = get_time()
+
+        # Dynamic variables
+        v = v[None, ...].repeat(pos.shape[0], 1)
+
+        # Hash grid encoding
+        enc = self.hash_grid(pos)
+
+        # Variable encodings
+        vpos = torch.zeros((pos.shape[0], 3 * len(self.anim_conf) * 2), device=self.device)
+        for i in range(len(self.anim_conf)):
+            vpos[:, i * 6 + 0] = pos[:, 0]
+            vpos[:, i * 6 + 1] = v[i]
+            vpos[:, i * 6 + 2] = pos[:, 1]
+            vpos[:, i * 6 + 3] = v[i]
+            vpos[:, i * 6 + 4] = pos[:, 2]
+            vpos[:, i * 6 + 5] = v[i]
+        vars_enc = self.vars_grid(vpos)
+
+        t2 = get_time()
+
+        # Concatenate encoding with wr_direction and roughness
+        enc = torch.cat([enc, vars_enc, pos, dir, normal, albedo, roughness, v], dim=-1)
+
+        # Pass through MLP
+        color = torch.abs(self.mlp(enc)).to(dtype=precision)
+
+        t3 = get_time()
+
+        # print("\tNR_Preproc:\t", t1-t0)
+        # print("\tNR_HashGrid:\t", t2-t1)
+        # print("\tNR_MLP:\t\t", t3-t2)
+
+
+        return color
+
+    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32):
+        with torch.no_grad():
+            lhs_color = self.query_model(si_lhs, scene, v=self.anim_vars, precision=precision)
+
+        return lhs_color
+
+    def render_rhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32, spp: int = 1):
+        with torch.no_grad():
+            point_num = si_lhs.p.torch().shape[0]
+            result = torch.zeros((point_num, 3), dtype=precision, device=self.device)
+
+            render_iter = (spp + 3) // 4
+            for i in range(render_iter):
+                iter_spp = min(4, spp - i * 4)
+                # Sample rhs interactions
+                lhs_rhs = LHSRHS(
+                    scene=scene,
+                    point_num=point_num,
+                    dirs_per_point=iter_spp
+                )
+                lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
+                lhs_rhs.to(device=self.device, dtype=precision)
+                si_rhs = lhs_rhs.si_bsdf
+
+                rhs_color = self.query_model(si_rhs, scene, v=self.anim_vars, precision=precision)
+
+                # Render rhs color
+                rhs_color = rhs_color.reshape(-1, iter_spp, 3)
+                rhs_color = lhs_rhs.render(rhs_color, None)
+
+                result += rhs_color * (iter_spp / spp)
+
+                dr.sync_device()
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
+
+        return result
+
+
+class DynamicNeuralConeRadiosity(DynamicNeuralRadiosity):
+    """
+    Dynamic Neural Cone Radiosity
+    """
+    def __init__(self, config: dict, pipeline_config: dict, scene: mi.Scene, animation: dict = None) -> None:
+        super(DynamicNeuralConeRadiosity, self).__init__(config["ray"], pipeline_config, scene, animation)
+
+        self.config = config["cone"]
+        self.n_glossy_rhs = config["n_glossy_rhs"]
+        self.n_glossy_samples = config["n_glossy_max_samples"]
+
+        self.tan_lobe_lut = LobeLUT(
+            alpha=[0.0, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5],
+            cone_threshold=config["cone_threshold"],
+            integrand_type="GGX"
+        )
+        
+        self.kMeans = KMeans(
+            n_clusters=self.n_glossy_samples,
+            n_iter=config["n_kmeans_iter"]
+        )
+
+        self.pfilt_grid = MultiresHashGrid(self.config, self.bbox, twosided=False)
+        
+        if self.config["use_tcnn"]:
+            network_config = {
+                "otype": "FullyFusedMLP" if self.config["n_hidden_dims"] <= 128 else "CutlassMLP",
+                "n_hidden_layers": self.config["n_hidden_layers"],
+                "n_neurons": self.config["n_hidden_dims"],
+                "activation": "ReLU",
+                "output_activation": self.config["output_activation"],
+            }
+            self.cone_mlp = tcnn.Network(
+                n_input_dims=self.config["n_features_per_level"] + 3 * 2 + 1 + len(self.anim_conf),
+                n_output_dims=3,
+                network_config=network_config
+            )
+        else:
+            self.cone_mlp = ShallowMLP(
+                # encoding + pos + normal + wr + albedo + roughness
+                in_channels=self.config["n_features_per_level"] + 3 * 2 + 1 + len(self.anim_conf),
+                out_channels=3,
+                hidden_layers=self.config["n_hidden_layers"],
+                hidden_channels=self.config["n_hidden_dims"],
+                activation=nn.ReLU(),
+                output_activation=nn.Identity() if self.config["output_activation"] == "None" else nn.Softplus()
+            )
+
+        self.merge_mlp = ShallowMLP(
+            in_channels=6+1+3,
+            out_channels=3,
+            hidden_layers=1,
+            hidden_channels=32,
+            activation=nn.ReLU(),
+            output_activation=nn.Softplus()
+        )
+
+    def train(self, mode: bool = True):
+        """
+        Set the model to training mode
+        """
+        super().train(mode)
+        if not mode:
+            self.kMeans.load_kernel()
+            self.pfilt_grid.load_kernel("NCR_hash_grid_cuda")
+        else:
+            self.kMeans.use_kernel = False
+            self.pfilt_grid.use_kernel = False
+        return self
+
+    def query_model(
+        self,
+        si: mi.SurfaceInteraction3f,
+        scene: mi.Scene,
+        v: torch.Tensor,
+        precision=torch.float32,
+    ) -> torch.Tensor:
+        """
+        Query the model with surface interaction
+        """
+        seed = np.random.randint(0, 10000000)
+        dr.eval(si)
+        t0 = get_time()
+
+        # Get color from neural radiosity
+        color = super().query_model(si, scene, v, precision=precision)
+
+        t1 = get_time()
+        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+
+        # Mask & indices for glossy materials
+        glossy_mask = (roughness < 0.5).squeeze()
+
+        if not glossy_mask.any():
+            return color
+
+        # Get RHS interaction distance from Monte Carlo sampling
+        si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
+        t_mc = si_glo_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
+
+        # Aggregate MC points into fixed number of gaussians
+        t_fix, n_fix, std_fix = self.kMeans.fit(t_mc, precision=precision)
+
+        # Compute query size
+        tan_lobe = self.tan_lobe_lut(roughness[glossy_mask])
+
+        # Glossy model inference
+        N_glossy = t_fix.shape[0]
+        cone_color = torch.zeros(N_glossy, self.n_glossy_samples, 3, device=self.device, dtype=precision)
+        # [N, n_clusters]
+        active = n_fix >= 1
+        radius = (t_fix * tan_lobe + std_fix)[active][:, None] / 2
+        # [N, n_clusters, 3: xyz]
+        pos_march = (pos[glossy_mask][:, None, :] + t_fix[:, :, None] * dir[glossy_mask][:, None, :])[active]
+
+        pfilt_enc = self.pfilt_grid.forward_layer_interp(pos_march, radius)
+
+        # Dynamic variables
+        v = v[None, ...].repeat(pos_march.shape[0], 1)
+
+        pfilt_enc = torch.cat([
+            pfilt_enc,
+            pos_march,
+            -dir[glossy_mask][:, None, :].repeat(1, self.n_glossy_samples, 1)[active],
+            radius,
+            v
+        ], dim=-1)
+        march_color = torch.abs(self.cone_mlp(pfilt_enc))
+
+        cone_color[active] = march_color * (n_fix / self.n_glossy_rhs)[active][:, None]
+        cone_color = torch.sum(cone_color, dim=1)
+
+        # Merge with neural radiosity
+        color[glossy_mask] = self.merge_mlp(torch.cat(
+            [color[glossy_mask], cone_color, roughness[glossy_mask], albedo[glossy_mask]], dim=-1))
+
+        return color
+
+    

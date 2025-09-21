@@ -11,6 +11,8 @@ import torch
 
 # Custom
 from src.viewer.camera import FPSCamera, MovingCamera
+from src.util.dscene import set_anim_vars
+from src.model.radiosity import DynamicNeuralRadiosity
 from render import load_render_vars
 
 # Mitsuba
@@ -22,6 +24,7 @@ mi.set_variant("cuda_rgb")
 def render_image(render_vars: dict, args: argparse.Namespace) -> torch.Tensor:
     # Load render variables
     scene: mi.Scene = render_vars["scene"]
+    animation = render_vars["animation"]
     params = mi.traverse(scene)
     
     spp = args.spp
@@ -49,6 +52,16 @@ def render_image(render_vars: dict, args: argparse.Namespace) -> torch.Tensor:
     params['PerspectiveCamera.to_world'] = mi.Matrix4f(camera.get_transform()[None, ...])
     params['PerspectiveCamera.x_fov'] = mi.Float32(camera.get_x_fov()[None, ...])
     params.update()
+
+    # Load dynamic variables
+    anim_vars = {}
+    if animation is not None:
+        for key in animation.keys():
+            anim_vars[key] = 1.0
+    set_anim_vars(params, animation, anim_vars)
+    v = np.array(list(anim_vars.values()), dtype=np.float32)
+    if render_mode[-2:] == "HS" and isinstance(integrator.model, DynamicNeuralRadiosity):
+        integrator.model.update_vars(v)
     
     # Render
     max_spp_per_iter = 1024

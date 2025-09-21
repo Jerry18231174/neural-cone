@@ -1,0 +1,164 @@
+<scene version="2.1.0">
+
+<!-- Defaults, these can be set via the command line: -Darg=value -->
+
+	<default name="spp" value="512"/>
+	<default name="resx" value="960"/>
+	<default name="resy" value="540"/>
+
+<!-- Camera and Rendering Parameters -->
+
+	<integrator type="path">
+		<integer name="max_depth" value="9"/>
+	</integrator>
+	<sensor type="perspective">
+		<string name="fov_axis" value="x"/>
+		<float name="fov" value="49.134342"/>
+		<float name="near_clip" value="0.100000"/>
+		<float name="far_clip" value="100.000000"/>
+		<transform name="to_world">
+			<rotate x="1" angle="-144.74005500373596"/>
+			<rotate y="1" angle="-46.20003816865364"/>
+			<rotate z="1" angle="-179.99997768819966"/>
+			<translate value="1.883903 1.847565 1.809089"/>
+		</transform>
+		<sampler type="independent">
+			<integer name="sample_count" value="$spp"/>
+		</sampler>
+		<film type="hdrfilm">
+			<integer name="width" value="$resx"/>
+			<integer name="height" value="$resy"/>
+			<rfilter type="box" />
+		</film>
+	</sensor>
+
+<!-- Materials -->
+
+	<bsdf type="diffuse" id="mat-Material">
+		<rgb value="0.1 0.1 0.1" name="reflectance"/>
+	</bsdf>
+    <bsdf type="roughconductor" id="mat-Material.002">
+    	<float name="alpha" value="0.02" />
+		<string name="distribution" value="ggx" />
+		<rgb name="specular_reflectance" value="1.0, 1.0, 1.0" />
+		<rgb name="eta" value="0.17, 0.35, 1.5" />
+		<rgb name="k" value="3.1, 2.7, 1.9" />
+	</bsdf>
+
+	<bsdf type="diffuse" id="empty-emitter-bsdf">
+		<rgb value="0.000000" name="reflectance"/>
+	</bsdf>
+
+	<bsdf type="diffuse" id="LeftWallBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/PersistMemory.jpeg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
+	</bsdf>
+	<bsdf type="diffuse" id="RightWallBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/cafe.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
+	</bsdf>
+	<bsdf type="diffuse" id="FloorBSDF">
+		<texture name="reflectance" type="checkerboard">
+			<rgb name="color1" value="0.63, 0.065, 0.05" />
+			<rgb name="color0" value="0.14, 0.45, 0.091" />
+			<transform name="to_uv">
+				<scale x="2.000000" y="2.000000" />
+			</transform>
+		</texture>
+	</bsdf>
+	<bsdf type="diffuse" id="CeilingBSDF">
+		<rgb name="reflectance" value="0.725, 0.71, 0.68" />
+	</bsdf>
+	<bsdf type="diffuse" id="BackWallBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/knotsCut.jpg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
+	</bsdf>
+	<bsdf type="diffuse" id="FrontWallBSDF">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/sky.jpeg" />
+			<string name="filter_type" value="bilinear" />
+		</texture>
+	</bsdf>
+
+<!-- Emitters -->
+
+	<emitter type="envmap">
+		<string name="filename" value="textures/Outside Park.png"/>
+		<float name="scale" value="1.000000"/>
+		<transform name="to_world">
+			<matrix value="0.000000 0.000000 1.000000 0.000000 0.000000 1.000000 0.000000 0.000000 -1.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 1.000000"/>
+		</transform>
+	</emitter>
+	<shape type="ply">
+		<string name="filename" value="meshes/Circle.ply"/>
+		<ref id="mat-Material.002" name="bsdf"/>
+	</shape>
+	<shape type="ply">
+		<string name="filename" value="meshes/Circle.001.ply"/>
+		<ref id="mat-Material.002" name="bsdf"/>
+	</shape>
+
+	<shape type="ply">
+		<string name="filename" value="meshes/Plane.ply"/>
+		<ref id="empty-emitter-bsdf" name="bsdf"/>
+		<emitter type="area">
+			<rgb value="50.000000 50.000000 50.000000" name="radiance"/>
+		</emitter>
+	</shape>
+
+
+<!-- Shapes -->
+
+	<shape type="ply">
+		<string name="filename" value="meshes/Table.ply"/>
+		<ref id="mat-Material" name="bsdf"/>
+	</shape>
+
+	<shape type="rectangle" id="Floor">
+		<transform name="to_world">
+			<matrix value="0 5 0 0 0 0 10 -2 5 0 0 0 0 0 0 1" />
+		</transform>
+		<ref id="FloorBSDF" />
+	</shape>
+	<shape type="rectangle" id="Ceiling">
+		<transform name="to_world">
+			<matrix value="-5 0 0 0 0 0 -10 8 0 -5 0 0 0 0 0 1" />
+		</transform>
+		<ref id="CeilingBSDF" />
+	</shape>
+	<shape type="rectangle" id="BackWall">
+		<transform name="to_world">
+			<matrix value="5 0 0 0 0 -5 0 3 0 0 -10 -5 0 0 0 1" />
+		</transform>
+		<boolean name="flip_normals" value="true"/>
+		<ref id="BackWallBSDF" />
+	</shape>
+	<shape type="rectangle" id="FrontWall">
+		<transform name="to_world">
+			<matrix value="-5 0 0 0 0 -5 0 3 0 0 10 5 0 0 0 1" />
+		</transform>
+		<boolean name="flip_normals" value="true"/>
+		<ref id="FrontWallBSDF" />
+	</shape>
+	<shape type="rectangle" id="RightWall">
+		<transform name="to_world">
+			<matrix value="0 0 5 5 0 -5 0 3 5 0 0 0 0 0 0 1" />
+		</transform>
+		<boolean name="flip_normals" value="true"/>
+		<ref id="RightWallBSDF" />
+	</shape>
+	<shape type="rectangle" id="LeftWall">
+		<transform name="to_world">
+			<matrix value="0 0 -10 -5 0 -5 0 3 -5 0 0 0 0 0 0 1" />
+		</transform>
+		<boolean name="flip_normals" value="true"/>
+		<ref id="LeftWallBSDF" />
+	</shape>
+
+</scene>
