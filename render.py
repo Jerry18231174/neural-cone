@@ -15,6 +15,7 @@ from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_
 from src.integrator.neural import RadiosityIntegrator
 from src.integrator.path import *
 from src.integrator.g_buffer import *
+from src.integrator.ao import *
 from src.viewer.camera import FPSCamera
 from src.viewer.ui import UI
 
@@ -84,6 +85,9 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     normal_integrator = mi.load_dict({
         "type": "normal"
     })
+    ao_integrator = mi.load_dict({
+        "type": "ao"
+    })
 
     width, height = params['PerspectiveCamera.film.size'].numpy()
     x_fov = params['PerspectiveCamera.x_fov'].numpy()[0]
@@ -102,6 +106,7 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             "depth": depth_integrator,
             "albedo": albedo_integrator,
             "normal": normal_integrator,
+            "ao": ao_integrator,
         },
         "camera": camera,
     }
@@ -119,6 +124,7 @@ def render(config: dict, args: argparse.Namespace):
     depth_integrator = render_vars["integrators"]["depth"]
     albedo_integrator = render_vars["integrators"]["albedo"]
     normal_integrator = render_vars["integrators"]["normal"]
+    ao_integrator = render_vars["integrators"]["ao"]
     camera: FPSCamera = render_vars["camera"]
     width, height = camera.width, camera.height
 
@@ -167,7 +173,7 @@ def render(config: dict, args: argparse.Namespace):
             update_frame = update_frame or vc
 
             _, int_type = imgui.combo("Integrator", int_type, [
-                                    "Path", "LHS", "RHS", "Depth", "Albedo", "Normal"])
+                                    "Path", "LHS", "RHS", "Depth", "Albedo", "Normal", "AO"])
             _, slider_spp = imgui.slider_int("SPP", slider_spp, 1, 16)
 
             if int_type == 0:
@@ -194,6 +200,9 @@ def render(config: dict, args: argparse.Namespace):
                 spp = slider_spp
             elif int_type == 5:
                 integrator = normal_integrator
+                spp = slider_spp
+            elif int_type == 6:
+                integrator = ao_integrator
                 spp = slider_spp
 
             _, use_antialiasing = imgui.checkbox(
