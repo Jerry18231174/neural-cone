@@ -10,3 +10,4 @@ mesh2sdf
 ninja
 opencv-python
 ffmpeg-python
+cuda-python

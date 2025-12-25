@@ -23,6 +23,8 @@ Test cases:
 
 ## How to render a scene
 
+* Create an environment with python 3.9: `conda create -n mi3 python=3.9`
+* Install necessary packages: `pip install -r requirements.txt`
 * Choose a `[config_name]`, default value: `ncr-4-2`
 * Choose a `[scene_name]` from `['bathroom', 'cornell-box', 'living-room', 'kitchen', 'veach-ajar']`
 * Compile our customized version of Mitsuba 3.5.2
