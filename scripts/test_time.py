@@ -136,7 +136,7 @@ if __name__ == "__main__":
     pt_spp = 16
     odin_spp = 4
     lhs_spp = 1
-    rhs_spp = 16
+    rhs_spp = 4
     lrhs_thresh = 8  # TODO: related to the Network Configuration
     info = []
     result = []

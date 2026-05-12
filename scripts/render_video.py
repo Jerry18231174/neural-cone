@@ -27,6 +27,11 @@ def render_video(render_vars: dict, script: dict, args: argparse.Namespace) -> t
     # Load render variables
     scene: mi.Scene = render_vars["scene"]
     params = mi.traverse(scene)
+
+    # Check cache dir
+    cache_dir = os.path.join("out", "video_cache")
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
     
     fps = script["fps"]
     duration = script["duration"]
