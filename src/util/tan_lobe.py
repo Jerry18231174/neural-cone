@@ -81,8 +81,8 @@ class LobeLUT:
         for i, a in enumerate(alpha):
             if a < last_alpha:
                 raise ValueError("Alpha values must be in non-decreasing order.")
-            # self.lut[i] = np.tan(find_theta_k(a, cone_threshold, integrand=integrand_map[integrand_type]))
-            self.lut[i] = find_theta_k(a, cone_threshold, integrand=integrand_map[integrand_type])
+            self.lut[i] = np.tan(find_theta_k(a, cone_threshold, integrand=integrand_map[integrand_type]))
+            # self.lut[i] = find_theta_k(a, cone_threshold, integrand=integrand_map[integrand_type])
             last_alpha = a
 
         self.alpha = torch.tensor(self.alpha, dtype=torch.float32, device=device)

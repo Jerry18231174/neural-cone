@@ -11,7 +11,7 @@ import torch
 
 # Custom
 from src.util.progress_bar import find_best_ckpt
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
+from src.model.radiosity import *
 from src.integrator.neural import RadiosityIntegrator
 from src.integrator.path import *
 from src.integrator.g_buffer import *
@@ -45,10 +45,17 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     else:
         ckpt_path, _ = find_best_ckpt(ckpt_dir, metric="loss")
 
-    if config["model"]["name"] == "NR":
+    if config["model"]["name"][:2] == "NR":
         model = NeuralRadiosity.load_from_checkpoint(
             ckpt_path,
             config=config["model"]["ray"],
+            pipeline_config=config,
+            scene=scene
+        )
+    elif config["model"]["name"][:4] == "NCR2":
+        model = NeuralConeRadiosity2.load_from_checkpoint(
+            ckpt_path,
+            config=config["model"],
             pipeline_config=config,
             scene=scene
         )
@@ -173,8 +180,8 @@ def render(config: dict, args: argparse.Namespace):
             update_frame = update_frame or vc
 
             _, int_type = imgui.combo("Integrator", int_type, [
-                                    "Path", "LHS", "RHS", "Depth", "Albedo", "Normal", "AO"])
-            _, slider_spp = imgui.slider_int("SPP", slider_spp, 1, 16)
+                                    "Path", "LHS", "RHS", "Deferred", "Depth", "Albedo", "Normal", "AO"])
+            _, slider_spp = imgui.slider_int("SPP", slider_spp, 1, 32)
 
             if int_type == 0:
                 integrator = path_integrator
@@ -189,19 +196,24 @@ def render(config: dict, args: argparse.Namespace):
                 nr_integrator.spp = slider_spp
                 spp = 1
             elif int_type == 3:
+                integrator = nr_integrator
+                nr_integrator.render_mode = "Deferred"
+                nr_integrator.spp = slider_spp
+                spp = 1
+            elif int_type == 4:
                 integrator = depth_integrator
                 if use_antialiasing:
                     depth_integrator.ray_type = "secondary"
                 else:
                     depth_integrator.ray_type = "primary"
                 spp = slider_spp
-            elif int_type == 4:
+            elif int_type == 5:
                 integrator = albedo_integrator
                 spp = slider_spp
-            elif int_type == 5:
+            elif int_type == 6:
                 integrator = normal_integrator
                 spp = slider_spp
-            elif int_type == 6:
+            elif int_type == 7:
                 integrator = ao_integrator
                 spp = slider_spp
 

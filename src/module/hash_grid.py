@@ -5,6 +5,43 @@ import os
 from torch.utils.cpp_extension import load
 
 
+class _HashGridCudaFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, kernel, pos, *grids):
+        ctx.kernel = kernel
+        ctx.save_for_backward(pos, *grids)
+        return kernel.forward(pos, list(grids))
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        pos, *grids = ctx.saved_tensors
+        grad_grids = ctx.kernel.backward(
+            pos,
+            grad_output.contiguous(),
+            list(grids),
+        )
+        return None, None, *grad_grids
+
+
+class _HashGridLayerInterpCudaFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, kernel, pos, point_size, *grids):
+        ctx.kernel = kernel
+        ctx.save_for_backward(pos, point_size, *grids)
+        return kernel.forward_layer_interp(pos, point_size, list(grids))
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        pos, point_size, *grids = ctx.saved_tensors
+        grad_grids = ctx.kernel.backward_layer_interp(
+            pos,
+            point_size,
+            grad_output.contiguous(),
+            list(grids),
+        )
+        return None, None, None, *grad_grids
+
+
 class MultiresHashGrid(nn.Module):
     """
     Multi-resolution Hash Grid
@@ -119,8 +156,12 @@ class MultiresHashGrid(nn.Module):
         pos = self._normalize_pos(si_positions)
         features = []
 
-        if self.use_kernel and active_side is None:
-            return self.cuda_kernel.forward(pos.contiguous(), self.grids)
+        if self.use_kernel and active_side is None and not self.twosided:
+            return _HashGridCudaFunction.apply(
+                self.cuda_kernel,
+                pos.contiguous(),
+                *self.grids,
+            )
 
         for i in range(self.config["n_levels"]):
             resolution = self.resolutions[i]
@@ -188,8 +229,13 @@ class MultiresHashGrid(nn.Module):
         size = point_size / (self.bbox[1] - self.bbox[0]).max()
         features = []
 
-        if self.use_kernel and active_side is None:
-            return self.cuda_kernel.forward_layer_interp(pos.contiguous(), size.contiguous(), self.grids)
+        if self.use_kernel and active_side is None and not self.twosided:
+            return _HashGridLayerInterpCudaFunction.apply(
+                self.cuda_kernel,
+                pos.contiguous(),
+                size.contiguous(),
+                *self.grids,
+            )
 
         sample_ratio = 1 / self.sample_ratio
 

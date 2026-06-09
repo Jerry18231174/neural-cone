@@ -139,28 +139,15 @@ __global__ void forward_kernel(
     scalar_t *result,
     int N
 ) {
-    int bid = blockIdx.x;
-    int tid = threadIdx.x;
-    int level = tid >> 3;   // divide by 8
-    int corner = tid & 7;   // mod 8
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int total_threads = N * LEVELS;
 
-    if (bid >= N || tid >= blockDim.x) return;
+    if (tid >= total_threads) return;
 
-#if (LAYER_REDUCE == CONCAT)
-    __shared__ scalar_t shared_out[LEVELS * DIMENSIONS];
-    for (int i = tid; i < LEVELS * DIMENSIONS; i += blockDim.x) {
-        shared_out[i] = 0.0f;
-    }
-#elif (LAYER_REDUCE == MEAN)
-    __shared__ scalar_t shared_out[DIMENSIONS];
-    for (int i = tid; i < DIMENSIONS; i += blockDim.x) {
-        shared_out[i] = 0.0f;
-    }
-#endif
-    __syncthreads();
+    int bid = tid / LEVELS;
+    int level = tid % LEVELS;
 
     int res = resolutions[level];
-    int grid_size = grid_sizes[level];
     
     const scalar_t *pos_ptr = pos + bid * 3;
     scalar_t3<scalar_t> pos3 = scalar_t3<scalar_t>(pos_ptr[0], pos_ptr[1], pos_ptr[2]);
@@ -173,42 +160,38 @@ __global__ void forward_kernel(
         pos_grid.y - base.y,
         pos_grid.z - base.z
     );
-    int3 corner3 = _corner_offset(corner);
-    int3 index3 = make_int3(
-        base.x + corner3.x,
-        base.y + corner3.y,
-        base.z + corner3.z
-    );
-    uint32_t index = _hash_index(index3, level);
-    assert(index < grid_size);
-
-    // Calculate interpolation weight
-    scalar_t weight = (corner3.x ? offset.x : (1 - offset.x)) *
-                      (corner3.y ? offset.y : (1 - offset.y)) *
-                      (corner3.z ? offset.z : (1 - offset.z));
-
     const scalar_t *grid_ptr = grids[level];
-    const scalar_t *grid = grid_ptr + index * DIMENSIONS;
+    scalar_t feature_accum[DIMENSIONS];
+    for (int i = 0; i < DIMENSIONS; ++i) {
+        feature_accum[i] = 0;
+    }
+
+    for (int corner = 0; corner < 8; ++corner) {
+        int3 corner3 = _corner_offset(corner);
+        int3 index3 = make_int3(
+            base.x + corner3.x,
+            base.y + corner3.y,
+            base.z + corner3.z
+        );
+        uint32_t index = _hash_index(index3, level);
+        const scalar_t *grid = grid_ptr + index * DIMENSIONS;
+
+        scalar_t weight = (corner3.x ? offset.x : (1 - offset.x)) *
+                          (corner3.y ? offset.y : (1 - offset.y)) *
+                          (corner3.z ? offset.z : (1 - offset.z));
+
+        for (int i = 0; i < DIMENSIONS; ++i) {
+            feature_accum[i] += grid[i] * weight;
+        }
+    }
 
 #if (LAYER_REDUCE == CONCAT)
     for (int i = 0; i < DIMENSIONS; ++i) {
-        atomicAdd(&shared_out[level * DIMENSIONS + i], grid[i] * weight);
+        result[bid * LEVELS * DIMENSIONS + level * DIMENSIONS + i] = feature_accum[i];
     }
 #elif (LAYER_REDUCE == MEAN)
     for (int i = 0; i < DIMENSIONS; ++i) {
-        atomicAdd(&shared_out[i], grid[i] * weight / LEVELS);
-    }
-#endif
-    __syncthreads();
-
-    // Write to output
-#if (LAYER_REDUCE == CONCAT)
-    for (int i = tid; i < LEVELS * DIMENSIONS; i += blockDim.x) {
-        result[bid * LEVELS * DIMENSIONS + i] = shared_out[i];
-    }
-#elif (LAYER_REDUCE == MEAN)
-    for (int i = tid; i < DIMENSIONS; i += blockDim.x) {
-        result[bid * DIMENSIONS + i] = shared_out[i];
+        atomicAdd(&result[bid * DIMENSIONS + i], feature_accum[i] / LEVELS);
     }
 #endif
 }
@@ -222,63 +205,103 @@ __global__ void forward_layer_interp_kernel(
     scalar_t *result,
     int N
 ) {
-    int bid = blockIdx.x;
-    int tid = threadIdx.x;
-    int ipid = tid >> 4;              // Interp parallel index = tid divide by 16
-    int loffset = (tid >> 3) & 0x1;   // Lower or upper level
-    int corner = tid & 7;             // Cornel index = tid mod 8
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (bid >= N || tid >= blockDim.x) return;
+    if (tid >= N) return;
 
-    __shared__ scalar_t shared_out[INTERP_PARALLEL * 2 * DIMENSIONS];
-    for (int i = tid; i < 2 * INTERP_PARALLEL * 2 * DIMENSIONS; i += blockDim.x) {
-        shared_out[i] = 0.0f;
-    }
-    __syncthreads();
-
-    const scalar_t *pos_ptr = pos + bid * INTERP_PARALLEL * 3 + ipid * 3;
-    scalar_t psize_val = point_size[bid * INTERP_PARALLEL + ipid];
+    const scalar_t *pos_ptr = pos + tid * 3;
+    scalar_t psize_val = point_size[tid];
     scalar_t3<scalar_t> pos3 = scalar_t3<scalar_t>(pos_ptr[0], pos_ptr[1], pos_ptr[2]);
 
-    // Get corresponding level and layer interpolation weight
-    // Lower level means coarser, larger voxel size
-    int level;
-    scalar_t layer_weight = 0.0f;
-    if (loffset) {  // Upper(finer) level, fit bottom-up
-        level = LEVELS;
-        for (int i = 0; i < LEVELS; ++i) {
-            scalar_t voxel_size = grid_scales[i];
-            if (psize_val > voxel_size) {
-                level = i;
-                break;
-            }
-        }
-        scalar_t coarser_size = grid_scales[level - 1];
-        scalar_t finer_size = grid_scales[level];
-        layer_weight = (level == 0) ? 0.0f : ((level == LEVELS) ? 1.0f : (
-            (coarser_size - psize_val) / (coarser_size - finer_size)));
-    } else {        // Lower(coarser) level, fit top-down
-        level = -1;
-        for (int i = LEVELS - 1; i >= 0; --i) {
-            scalar_t voxel_size = grid_scales[i];
-            if (psize_val < voxel_size) {
-                level = i;
-                break;
-            }
-        }
-        scalar_t coaser_size = grid_scales[level];
-        scalar_t finer_size = grid_scales[level + 1];
-        layer_weight = (level == LEVELS - 1) ? 0.0f : ((level == -1) ? 1.0f : (
-            (psize_val - finer_size) / (coaser_size - finer_size)));
+    scalar_t feature_accum[DIMENSIONS];
+    for (int i = 0; i < DIMENSIONS; ++i) {
+        feature_accum[i] = 0;
     }
 
-    level = (level < 0) ? 0 : (level >= LEVELS ? LEVELS - 1 : level);
+    int levels[2] = {0, -1};
+    scalar_t layer_weights[2] = {0, 0};
 
-    // This thread has non-zero weight
+    if (psize_val >= static_cast<scalar_t>(grid_scales[0])) {
+        levels[0] = 0;
+        layer_weights[0] = 1;
+    } else if (psize_val <= static_cast<scalar_t>(grid_scales[LEVELS - 1])) {
+        levels[0] = LEVELS - 1;
+        layer_weights[0] = 1;
+    } else {
+        for (int i = 0; i < LEVELS - 1; ++i) {
+            scalar_t coarser_size = static_cast<scalar_t>(grid_scales[i]);
+            scalar_t finer_size = static_cast<scalar_t>(grid_scales[i + 1]);
+            if (psize_val <= coarser_size && psize_val >= finer_size) {
+                scalar_t denom = coarser_size - finer_size;
+                levels[0] = i;
+                levels[1] = i + 1;
+                layer_weights[0] = (psize_val - finer_size) / denom;
+                layer_weights[1] = (coarser_size - psize_val) / denom;
+                break;
+            }
+        }
+    }
+
+    for (int li = 0; li < 2; ++li) {
+        int level = levels[li];
+        scalar_t layer_weight = layer_weights[li];
+        if (level < 0 || layer_weight == 0) continue;
+
+        int res = resolutions[level];
+        scalar_t3<scalar_t> pos_grid = pos3 * res;
+        int3 base = pos_grid.to_int3();
+        scalar_t3<scalar_t> offset = scalar_t3<scalar_t>(
+            pos_grid.x - base.x,
+            pos_grid.y - base.y,
+            pos_grid.z - base.z
+        );
+
+        const scalar_t *grid_ptr = grids[level];
+
+        for (int corner = 0; corner < 8; ++corner) {
+            int3 corner3 = _corner_offset(corner);
+            int3 index3 = make_int3(
+                base.x + corner3.x,
+                base.y + corner3.y,
+                base.z + corner3.z
+            );
+            uint32_t index = _hash_index(index3, level);
+            const scalar_t *grid = grid_ptr + index * DIMENSIONS;
+
+            scalar_t weight = (corner3.x ? offset.x : (1 - offset.x)) *
+                              (corner3.y ? offset.y : (1 - offset.y)) *
+                              (corner3.z ? offset.z : (1 - offset.z));
+
+            for (int i = 0; i < DIMENSIONS; ++i) {
+                feature_accum[i] += grid[i] * weight * layer_weight;
+            }
+        }
+    }
+
+    for (int i = 0; i < DIMENSIONS; ++i) {
+        result[tid * DIMENSIONS + i] = feature_accum[i];
+    }
+}
+
+
+template <typename scalar_t>
+__global__ void backward_kernel(
+    const scalar_t *pos,
+    const scalar_t *grad_output,
+    scalar_t **grad_grids,
+    int N
+) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int total_threads = N * LEVELS;
+
+    if (tid >= total_threads) return;
+
+    int bid = tid / LEVELS;
+    int level = tid % LEVELS;
     int res = resolutions[level];
-    int grid_size = grid_sizes[level];
 
-    // Get hash index
+    const scalar_t *pos_ptr = pos + bid * 3;
+    scalar_t3<scalar_t> pos3 = scalar_t3<scalar_t>(pos_ptr[0], pos_ptr[1], pos_ptr[2]);
     scalar_t3<scalar_t> pos_grid = pos3 * res;
     int3 base = pos_grid.to_int3();
     scalar_t3<scalar_t> offset = scalar_t3<scalar_t>(
@@ -286,31 +309,112 @@ __global__ void forward_layer_interp_kernel(
         pos_grid.y - base.y,
         pos_grid.z - base.z
     );
-    int3 corner3 = _corner_offset(corner);
-    int3 index3 = make_int3(
-        base.x + corner3.x,
-        base.y + corner3.y,
-        base.z + corner3.z
-    );
-    uint32_t index = _hash_index(index3, level);
-    assert(index < grid_size);
+    scalar_t *grad_grid_ptr = grad_grids[level];
 
-    // Calculate interpolation weight
-    scalar_t weight = (corner3.x ? offset.x : (1 - offset.x)) *
-                    (corner3.y ? offset.y : (1 - offset.y)) *
-                    (corner3.z ? offset.z : (1 - offset.z));
+    for (int corner = 0; corner < 8; ++corner) {
+        int3 corner3 = _corner_offset(corner);
+        int3 index3 = make_int3(
+            base.x + corner3.x,
+            base.y + corner3.y,
+            base.z + corner3.z
+        );
+        uint32_t index = _hash_index(index3, level);
+        scalar_t weight = (corner3.x ? offset.x : (1 - offset.x)) *
+                          (corner3.y ? offset.y : (1 - offset.y)) *
+                          (corner3.z ? offset.z : (1 - offset.z));
 
-    const scalar_t *grid_ptr = grids[level];
-    const scalar_t *grid = grid_ptr + index * DIMENSIONS;
-
-    for (int i = 0; i < DIMENSIONS; ++i) {
-        atomicAdd(&shared_out[ipid * DIMENSIONS + i], grid[i] * weight * layer_weight);
+        for (int i = 0; i < DIMENSIONS; ++i) {
+#if (LAYER_REDUCE == CONCAT)
+            atomicAdd(
+                &grad_grid_ptr[index * DIMENSIONS + i],
+                grad_output[bid * LEVELS * DIMENSIONS + level * DIMENSIONS + i] * weight
+            );
+#elif (LAYER_REDUCE == MEAN)
+            atomicAdd(
+                &grad_grid_ptr[index * DIMENSIONS + i],
+                (grad_output[bid * DIMENSIONS + i] / LEVELS) * weight
+            );
+#endif
+        }
     }
-    __syncthreads();
+}
 
-    // Write to output
-    for (int i = tid; i < INTERP_PARALLEL * DIMENSIONS; i += blockDim.x) {
-        result[bid * INTERP_PARALLEL * DIMENSIONS + i] = shared_out[i];
+
+template <typename scalar_t>
+__global__ void backward_layer_interp_kernel(
+    const scalar_t *pos,
+    const scalar_t *point_size,
+    const scalar_t *grad_output,
+    scalar_t **grad_grids,
+    int N
+) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid >= N) return;
+
+    const scalar_t *pos_ptr = pos + tid * 3;
+    const scalar_t *grad_ptr = grad_output + tid * DIMENSIONS;
+    scalar_t psize_val = point_size[tid];
+    scalar_t3<scalar_t> pos3 = scalar_t3<scalar_t>(pos_ptr[0], pos_ptr[1], pos_ptr[2]);
+
+    int levels[2] = {0, -1};
+    scalar_t layer_weights[2] = {0, 0};
+
+    if (psize_val >= static_cast<scalar_t>(grid_scales[0])) {
+        levels[0] = 0;
+        layer_weights[0] = 1;
+    } else if (psize_val <= static_cast<scalar_t>(grid_scales[LEVELS - 1])) {
+        levels[0] = LEVELS - 1;
+        layer_weights[0] = 1;
+    } else {
+        for (int i = 0; i < LEVELS - 1; ++i) {
+            scalar_t coarser_size = static_cast<scalar_t>(grid_scales[i]);
+            scalar_t finer_size = static_cast<scalar_t>(grid_scales[i + 1]);
+            if (psize_val <= coarser_size && psize_val >= finer_size) {
+                scalar_t denom = coarser_size - finer_size;
+                levels[0] = i;
+                levels[1] = i + 1;
+                layer_weights[0] = (psize_val - finer_size) / denom;
+                layer_weights[1] = (coarser_size - psize_val) / denom;
+                break;
+            }
+        }
+    }
+
+    for (int li = 0; li < 2; ++li) {
+        int level = levels[li];
+        scalar_t layer_weight = layer_weights[li];
+        if (level < 0 || layer_weight == 0) continue;
+
+        int res = resolutions[level];
+        scalar_t3<scalar_t> pos_grid = pos3 * res;
+        int3 base = pos_grid.to_int3();
+        scalar_t3<scalar_t> offset = scalar_t3<scalar_t>(
+            pos_grid.x - base.x,
+            pos_grid.y - base.y,
+            pos_grid.z - base.z
+        );
+        scalar_t *grad_grid_ptr = grad_grids[level];
+
+        for (int corner = 0; corner < 8; ++corner) {
+            int3 corner3 = _corner_offset(corner);
+            int3 index3 = make_int3(
+                base.x + corner3.x,
+                base.y + corner3.y,
+                base.z + corner3.z
+            );
+            uint32_t index = _hash_index(index3, level);
+            scalar_t weight = (corner3.x ? offset.x : (1 - offset.x)) *
+                              (corner3.y ? offset.y : (1 - offset.y)) *
+                              (corner3.z ? offset.z : (1 - offset.z));
+
+            for (int i = 0; i < DIMENSIONS; ++i) {
+                atomicAdd(
+                    &grad_grid_ptr[index * DIMENSIONS + i],
+                    grad_ptr[i] * weight * layer_weight
+                );
+            }
+        }
     }
 }
 
@@ -328,6 +432,20 @@ const scalar_t **tensor_list_to_device_ptrs(const std::vector<torch::Tensor>& te
     const scalar_t **device_ptrs;
     cudaMalloc(&device_ptrs, sizeof(const scalar_t *) * n);
     cudaMemcpy(device_ptrs, host_ptrs.data(), sizeof(const scalar_t *) * n, cudaMemcpyHostToDevice);
+    return device_ptrs;
+}
+
+template<typename scalar_t>
+scalar_t **tensor_list_to_device_mut_ptrs(const std::vector<torch::Tensor>& tensors) {
+    size_t n = tensors.size();
+    std::vector<scalar_t *> host_ptrs(n);
+    for (size_t i = 0; i < n; ++i) {
+        host_ptrs[i] = tensors[i].contiguous().data_ptr<scalar_t>();
+    }
+
+    scalar_t **device_ptrs;
+    cudaMalloc(&device_ptrs, sizeof(scalar_t *) * n);
+    cudaMemcpy(device_ptrs, host_ptrs.data(), sizeof(scalar_t *) * n, cudaMemcpyHostToDevice);
     return device_ptrs;
 }
 
@@ -350,10 +468,8 @@ void launch_forward(
     cudaMemcpyToSymbol(grid_sizes, grid_table, sizeof(int) * LEVELS);
 
     // Launch device function
-    // int n_threads = THREADS;
-    // int n_blocks = (N * L * 8 * D + THREADS - 1) / THREADS;
-    int n_blocks = N;
-    int n_threads = 8 * LEVELS;
+    int n_threads = THREADS;
+    int n_blocks = (N * LEVELS + THREADS - 1) / THREADS;
 
     AT_DISPATCH_FLOATING_TYPES(pos.scalar_type(), "forward_kernel", ([&] {
         // Move grids vector/list to device pointer array
@@ -394,8 +510,8 @@ void launch_forward_layer_interp(
     cudaMemcpyToSymbol(grid_scales, scale_table, sizeof(float) * LEVELS);
 
     // Launch device function
-    int n_blocks = (N + INTERP_PARALLEL - 1) / INTERP_PARALLEL;
-    int n_threads = INTERP_PARALLEL * 2 * 8;
+    int n_threads = THREADS;
+    int n_blocks = (N + THREADS - 1) / THREADS;
 
     AT_DISPATCH_FLOATING_TYPES(pos.scalar_type(), "forward_layer_interp_kernel", ([&] {
         // Move grids vector/list to device pointer array
@@ -411,5 +527,78 @@ void launch_forward_layer_interp(
 
         // Free device pointer array
         cudaFree(device_ptrs);
+    }));
+}
+
+void launch_backward(
+    const torch::Tensor pos,
+    const torch::Tensor grad_output,
+    const std::vector<torch::Tensor>& grad_grids
+) {
+    auto N = pos.size(0);
+
+    int res_table[LEVELS];
+    int grid_table[LEVELS];
+    for (int i = 0; i < LEVELS; ++i) {
+        int res = static_cast<int>(BASE_RESOLUTION * std::pow(PER_LEVEL_SCALE, i));
+        res_table[i] = res;
+        grid_table[i] = (res + 1) * (res + 1) * (res + 1);
+    }
+    cudaMemcpyToSymbol(resolutions, res_table, sizeof(int) * LEVELS);
+    cudaMemcpyToSymbol(grid_sizes, grid_table, sizeof(int) * LEVELS);
+
+    int n_threads = THREADS;
+    int n_blocks = (N * LEVELS + THREADS - 1) / THREADS;
+
+    AT_DISPATCH_FLOATING_TYPES(pos.scalar_type(), "backward_kernel", ([&] {
+        scalar_t **device_grad_ptrs = tensor_list_to_device_mut_ptrs<scalar_t>(grad_grids);
+
+        backward_kernel<scalar_t><<<n_blocks, n_threads>>>(
+            pos.data_ptr<scalar_t>(),
+            grad_output.data_ptr<scalar_t>(),
+            device_grad_ptrs,
+            N
+        );
+
+        cudaFree(device_grad_ptrs);
+    }));
+}
+
+void launch_backward_layer_interp(
+    const torch::Tensor pos,
+    const torch::Tensor point_size,
+    const torch::Tensor grad_output,
+    const std::vector<torch::Tensor>& grad_grids
+) {
+    auto N = pos.size(0);
+
+    int res_table[LEVELS];
+    int grid_table[LEVELS];
+    float scale_table[LEVELS];
+    for (int i = 0; i < LEVELS; ++i) {
+        int res = static_cast<int>(BASE_RESOLUTION * std::pow(PER_LEVEL_SCALE, i));
+        res_table[i] = res;
+        grid_table[i] = (res + 1) * (res + 1) * (res + 1);
+        scale_table[i] = INTERP_RATIO / res;
+    }
+    cudaMemcpyToSymbol(resolutions, res_table, sizeof(int) * LEVELS);
+    cudaMemcpyToSymbol(grid_sizes, grid_table, sizeof(int) * LEVELS);
+    cudaMemcpyToSymbol(grid_scales, scale_table, sizeof(float) * LEVELS);
+
+    int n_threads = THREADS;
+    int n_blocks = (N + THREADS - 1) / THREADS;
+
+    AT_DISPATCH_FLOATING_TYPES(pos.scalar_type(), "backward_layer_interp_kernel", ([&] {
+        scalar_t **device_grad_ptrs = tensor_list_to_device_mut_ptrs<scalar_t>(grad_grids);
+
+        backward_layer_interp_kernel<scalar_t><<<n_blocks, n_threads>>>(
+            pos.data_ptr<scalar_t>(),
+            point_size.data_ptr<scalar_t>(),
+            grad_output.data_ptr<scalar_t>(),
+            device_grad_ptrs,
+            N
+        );
+
+        cudaFree(device_grad_ptrs);
     }));
 }
