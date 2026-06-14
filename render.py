@@ -36,6 +36,16 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
     params = mi.traverse(scene)
 
+    # Get camera parameters
+    width, height = params['PerspectiveCamera.film.size'].numpy()
+    x_fov = params['PerspectiveCamera.x_fov'].numpy()[0]
+    extrinsic = params['PerspectiveCamera.to_world'].matrix.numpy()[0]
+    camera = FPSCamera({
+        "width": width,
+        "height": height,
+        "x_fov": x_fov,
+    }, extrinsic, 0.2)
+
     # Load model
     ckpt_dir = os.path.join("out", args.scene, "checkpoints", config["model"]["name"])
     if args.model_ckpt is not None:
@@ -77,6 +87,8 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     nr_integrator = RadiosityIntegrator(
         model=model,
         render_mode="LHS",
+        width=width,
+        height=height,
         precision=torch.float16 if args.half_precision else torch.float32,
     )
     path_integrator = mi.load_dict({
@@ -95,15 +107,6 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     ao_integrator = mi.load_dict({
         "type": "ao"
     })
-
-    width, height = params['PerspectiveCamera.film.size'].numpy()
-    x_fov = params['PerspectiveCamera.x_fov'].numpy()[0]
-    extrinsic = params['PerspectiveCamera.to_world'].matrix.numpy()[0]
-    camera = FPSCamera({
-        "width": width,
-        "height": height,
-        "x_fov": x_fov,
-    }, extrinsic, 0.2)
 
     return {
         "scene": scene,
@@ -126,7 +129,7 @@ def render(config: dict, args: argparse.Namespace):
     render_vars = load_render_vars(config, args)
     scene: mi.Scene = render_vars["scene"]
     params = mi.traverse(scene)
-    nr_integrator = render_vars["integrators"][args.config]
+    nr_integrator: RadiosityIntegrator = render_vars["integrators"][args.config]
     path_integrator = render_vars["integrators"]["path"]
     depth_integrator = render_vars["integrators"]["depth"]
     albedo_integrator = render_vars["integrators"]["albedo"]
@@ -217,8 +220,7 @@ def render(config: dict, args: argparse.Namespace):
                 integrator = ao_integrator
                 spp = slider_spp
 
-            _, use_antialiasing = imgui.checkbox(
-                "Anti-aliasing", use_antialiasing)
+            _, use_antialiasing = imgui.checkbox("Anti-aliasing", use_antialiasing)
             _, exposure = imgui.slider_float("Exposure", exposure, 0.1, 5)
             _, save_img = imgui.checkbox("Save image", save_img)
 
@@ -232,6 +234,8 @@ def render(config: dict, args: argparse.Namespace):
                 if vc:
                     empty_cache()
                 update_frame = update_frame or vc
+            
+            nr_integrator.use_filter = use_antialiasing
 
             imgui.tree_pop()
         
@@ -281,7 +285,7 @@ def render(config: dict, args: argparse.Namespace):
         if save_img:
             dr.sync_device()
             torch.cuda.synchronize()
-            out_dir = os.path.join("out", args.scene, args.config + ".exr")
+            out_dir = os.path.join("out", args.scene, args.config + ("-fxaa" if use_antialiasing else "") + ".exr")
             mi.util.write_bitmap(out_dir, img)
             print("Image saved to", out_dir)
             save_img = False

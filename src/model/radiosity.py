@@ -100,8 +100,27 @@ class RadiosityPipeline(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.pipeline_config["train"]["learning_rate"])
     
+    def on_before_optimizer_step(self, optimizer):
+        clip_val = float(self.pipeline_config["train"].get("gradient_clip_val", 1.0))
+        has_nonfinite_grad = False
+
+        for param in self.parameters():
+            if param.grad is None:
+                continue
+            if not torch.isfinite(param.grad).all():
+                has_nonfinite_grad = True
+                param.grad.nan_to_num_(nan=0.0, posinf=0.0, neginf=0.0)
+
+        if clip_val > 0:
+            grad_norm = torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clip_val)
+            if isinstance(grad_norm, torch.Tensor):
+                self.log("grad_norm", grad_norm.item(), prog_bar=False)
+
+        if has_nonfinite_grad:
+            self.log("nonfinite_grad", 1.0, prog_bar=True)
+    
     @abstractmethod
-    def query_model(self, si: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32) -> torch.Tensor:
+    def query_model(self, si: mi.SurfaceInteraction3f, gbuf: tuple, precision=torch.float32) -> torch.Tensor:
         """
         Query the model with surface interaction
         """
@@ -114,9 +133,15 @@ class RadiosityPipeline(L.LightningModule):
         si_lhs = lhs_rhs.si_lhs
         si_rhs = lhs_rhs.si_bsdf
 
-        lhs_color = self.query_model(si_lhs, lhs_rhs.scene)
+        dr.eval(si_lhs)
+        dr.eval(si_rhs)
+
+        gbuf_lhs = extract_input(si_lhs)
+        gbuf_rhs = extract_input(si_rhs)
+
+        lhs_color = self.query_model(si_lhs, gbuf_lhs)
         with torch.no_grad():
-            rhs_color = self.query_model(si_rhs, lhs_rhs.scene)
+            rhs_color = self.query_model(si_rhs, gbuf_rhs)
 
         # Render rhs color
         rhs_color = rhs_color.reshape(-1, lhs_rhs.dirs_per_point, 3)
@@ -127,28 +152,30 @@ class RadiosityPipeline(L.LightningModule):
             "rhs": rhs_color
         }
     
-    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32):
+    def render_lhs(self, si_lhs: mi.SurfaceInteraction3f, gbuf: tuple, precision=torch.float32):
         with torch.no_grad():
-            lhs_color = self.query_model(si_lhs, scene, precision=precision)
+            lhs_color = self.query_model(si_lhs, gbuf, precision=precision)
         
         return lhs_color
     
-    def render_rhs(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32, spp: int = 1):
+    def render_rhs(self, si_lhs: mi.SurfaceInteraction3f, spp: int = 1, precision=torch.float32):
         with torch.no_grad():
             dr.eval(si_lhs)
             point_num = dr.width(si_lhs.p)
 
             # Sample rhs interactions
             lhs_rhs = LHSRHS(
-                scene=scene,
+                scene=self.scene,
                 point_num=point_num,
                 dirs_per_point=spp
             )
             lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_lhs)
             si_rhs = lhs_rhs.si_bsdf
             dr.eval(si_rhs)
+            pos, normal, direction, albedo, roughness, active_side = extract_input(si_rhs)
+            gbuf = (pos, normal, direction, albedo, roughness, active_side)
 
-            rhs_color = self.query_model(si_rhs, scene, precision=precision)
+            rhs_color = self.query_model(si_rhs, gbuf, precision=precision)
 
             # Render rhs color
             rhs_color = rhs_color.reshape(-1, spp, 3)
@@ -156,7 +183,7 @@ class RadiosityPipeline(L.LightningModule):
 
         return rhs_color
     
-    def render_deferred(self, si_lhs: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32, spp: int = 1):
+    def render_deferred(self, si_lhs: mi.SurfaceInteraction3f, spp: int = 1, precision=torch.float32):
         with torch.no_grad():
             dr.eval(si_lhs)
             point_num = dr.width(si_lhs.p)
@@ -171,21 +198,25 @@ class RadiosityPipeline(L.LightningModule):
 
             # Sample rhs interactions
             lhs_rhs = LHSRHS(
-                scene=scene,
+                scene=self.scene,
                 point_num=dr.width(glo_idx),
                 dirs_per_point=spp
             )
             lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_glo)
             si_glo_rhs = lhs_rhs.si_bsdf
             dr.eval(si_glo_rhs)
+            pos, normal, direction, albedo, roughness, active_side = extract_input(si_glo_rhs)
+            gbuf = (pos, normal, direction, albedo, roughness, active_side)
 
-            rhs_color = self.query_model(si_glo_rhs, scene, precision=precision)
+            rhs_color = self.query_model(si_glo_rhs, gbuf, precision=precision)
 
             # Render glossy rhs color
             rhs_color = rhs_color.reshape(-1, spp, 3)
             glo_color = lhs_rhs.render(rhs_color, None)
 
-            diff_color = self.query_model(si_diff, scene, precision=precision)
+            pos, normal, direction, albedo, roughness, active_side = extract_input(si_diff)
+            gbuf = (pos, normal, direction, albedo, roughness, active_side)
+            diff_color = self.query_model(si_diff, gbuf, precision=precision)
 
             glossy_mask = glossy_mask.torch().bool()
             color = torch.zeros((point_num, 3), device="cuda", dtype=precision)
@@ -230,13 +261,13 @@ class NeuralRadiosity(RadiosityPipeline):
                 output_activation=nn.Identity() if config["output_activation"] == "None" else nn.Softplus()
             )
 
-    def query_model(self, si: mi.SurfaceInteraction3f, scene: mi.Scene, precision=torch.float32) -> torch.Tensor:
+    def query_model(self, si: mi.SurfaceInteraction3f, gbuf: tuple, precision=torch.float32) -> torch.Tensor:
         """
         Query the model with surface interaction
         """
         t0 = get_time()
 
-        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+        pos, normal, dir, albedo, roughness, active_side = gbuf
 
         t1 = get_time()
 
@@ -324,7 +355,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
     def query_model(
         self,
         si: mi.SurfaceInteraction3f,
-        scene: mi.Scene,
+        gbuf: tuple,
         precision=torch.float32,
     ) -> torch.Tensor:
         """
@@ -335,10 +366,10 @@ class NeuralConeRadiosity(NeuralRadiosity):
         t0 = get_time()
 
         # Get color from neural radiosity
-        color = super().query_model(si, scene, precision=precision)
+        color = super().query_model(si, gbuf, precision=precision)
 
         t1 = get_time()
-        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+        pos, normal, dir, albedo, roughness, active_side = gbuf
 
         # Mask & indices for glossy materials
         glossy_mask = (roughness < 0.5).squeeze()
@@ -348,7 +379,7 @@ class NeuralConeRadiosity(NeuralRadiosity):
 
         # Get RHS interaction distance from Monte Carlo sampling
         t2 = get_time()
-        si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
+        si_glo_rhs, _, _ = get_mc_itsc(si, self.scene, glossy_mask, self.n_glossy_rhs, seed=seed)
         t21 = get_time()
         t_mc = si_glo_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
         t3 = get_time()
@@ -570,7 +601,7 @@ class NeuralConeRadiosity2(RadiosityPipeline):
     def query_model(
         self,
         si: mi.SurfaceInteraction3f,
-        scene: mi.Scene,
+        gbuf: tuple,
         precision=torch.float32,
     ) -> torch.Tensor:
         """
@@ -582,7 +613,7 @@ class NeuralConeRadiosity2(RadiosityPipeline):
         t0 = get_time()
 
         # Get primary encoding from neural radiosity
-        pos, normal, dir, albedo, roughness, active_side = extract_input(si, device=self.device, dtype=precision)
+        pos, normal, dir, albedo, roughness, active_side = gbuf
         gbuf = torch.cat([pos, dir, normal, albedo, roughness], dim=-1)
         color = torch.zeros_like(pos)
 
@@ -604,7 +635,7 @@ class NeuralConeRadiosity2(RadiosityPipeline):
 
         # Get RHS interaction distance from Monte Carlo sampling
         t3 = get_time()
-        si_glo_rhs, _, _ = get_mc_itsc(si, scene, glossy_mask, self.n_glossy_rhs, seed=seed)
+        si_glo_rhs, _, _ = get_mc_itsc(si, self.scene, glossy_mask, self.n_glossy_rhs, seed=seed)
         t_mc = si_glo_rhs.t.torch().to(device=self.device, dtype=precision).reshape(-1, self.n_glossy_rhs)
         t4 = get_time()
 

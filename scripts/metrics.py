@@ -3,7 +3,20 @@ import numpy as np
 import argparse
 import torch
 
+import lpips
+import warnings
+
 mi.set_variant("cuda_rgb")
+
+warnings.filterwarnings(
+    "ignore",
+    message="The parameter 'pretrained' is deprecated"
+)
+
+warnings.filterwarnings(
+    "ignore",
+    message="Arguments other than a weight enum or `None` for 'weights' are deprecated"
+)
 
 EPSILON = 1e-2
 
@@ -27,6 +40,17 @@ def compute_SMAPE_torch(img, ref):
     e = 2 * torch.abs(img - ref) / (img + ref + EPSILON)
     return torch.mean(e, dim=2)
 
+def compute_lpips_torch(img, ref, lpips_model):
+    # HDR to LDR
+    exposure = 1.0
+    img = torch.clamp(torch.log1p(exposure * img), 0, 1) ** (1/2.2)
+    ref = torch.clamp(torch.log1p(exposure * ref), 0, 1) ** (1/2.2)
+    # [H, W, 3] -> [1, 3, H, W]
+    img = img.permute(2, 0, 1).unsqueeze(0)
+    ref = ref.permute(2, 0, 1).unsqueeze(0)
+    e = lpips_model(img, ref)
+    return e.squeeze()
+
 def compute_img_torch(img, ref, type):
     if type == "MSE":
         return compute_MSE_torch(img, ref)
@@ -38,6 +62,9 @@ def compute_img_torch(img, ref, type):
         return compute_MAE_torch(img, ref)
     elif type == "SMAPE":
         return compute_SMAPE_torch(img, ref)
+    elif type == "LPIPS":
+        lpips_model = lpips.LPIPS(net='alex').cuda()
+        return compute_lpips_torch(img, ref, lpips_model)
     else:
         raise NotImplementedError
 
@@ -69,6 +96,17 @@ def compute_SMAPE(img, ref):
     e = 2 * np.abs(img - ref) / (img + ref + EPSILON)
     return np.mean(e, axis=2)
 
+def compute_lpips(img, ref, lpips_model):
+    # HDR to LDR
+    exposure = 1.0
+    img = np.clip(np.log1p(exposure * img), 0, 1)
+    ref = np.clip(np.log1p(exposure * ref), 0, 1)
+    # [H, W, 3] -> [1, 3, H, W]
+    img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0).cuda()
+    ref = torch.from_numpy(ref).permute(2, 0, 1).unsqueeze(0).cuda()
+    e = lpips_model(img, ref)
+    return e.squeeze().detach().cpu().numpy()
+
 def compute_img(img, ref, type):
     if type == "MSE":
         return compute_MSE(img, ref)
@@ -80,6 +118,9 @@ def compute_img(img, ref, type):
         return compute_MAE(img, ref)
     elif type == "SMAPE":
         return compute_SMAPE(img, ref)
+    elif type == "LPIPS":
+        lpips_model = lpips.LPIPS(net='alex').cuda()
+        return compute_lpips(img, ref, lpips_model)
     else:
         raise NotImplementedError
     
@@ -99,8 +140,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    img = np.array(mi.Bitmap(args.img))
-    ref = np.array(mi.Bitmap(args.ref))
+    img = np.nan_to_num(np.array(mi.Bitmap(args.img)), posinf=0.0, neginf=0.0)
+    ref = np.nan_to_num(np.array(mi.Bitmap(args.ref)), posinf=0.0, neginf=0.0)
     
     value = compute_metric(img, ref, args.metric)
     print("{}: {:.6f}".format(args.metric, value))

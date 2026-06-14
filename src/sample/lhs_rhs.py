@@ -128,7 +128,7 @@ def first_smooth(
                        ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.Smooth)
             
             mask_out = bsdf.eval_null_transmission(si)
-            mask_out = (mask_out.x > 0) | (mask_out.y > 0) | (mask_out.z > 0)
+            mask_out = (mask_out.x > 0.999) | (mask_out.y > 0.999) | (mask_out.z > 0.999)
 
             active &= si.is_valid() & (spec_only | mask_out) & (depth < max_depth)
 
@@ -464,6 +464,8 @@ class LHSRHS:
 
             final_si[active & recorded] = si
             active &= ~recorded
+        
+        final_si.wi = mi.warp.square_to_cosine_hemisphere(sampler.next_2d())
 
         dr.eval(final_si)
 
