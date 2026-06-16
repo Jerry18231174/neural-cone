@@ -55,10 +55,10 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         si, throughput, emission, _ = first_smooth(scene, sampler, ray, active)
 
         with torch.no_grad():
+            dr.eval(si)
+            pos, normal, direction, albedo, roughness, active_side = extract_input(si)
         
             if self.render_mode == "LHS":
-                dr.eval(si)
-                pos, normal, direction, albedo, roughness, active_side = extract_input(si)
                 gbuf = (pos, normal, direction, albedo, roughness, active_side)
                 color = self.model.render_lhs(si, gbuf, precision=self.precision)
             elif self.render_mode == "RHS":
