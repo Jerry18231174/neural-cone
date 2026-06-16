@@ -36,7 +36,10 @@ def GGX(theta, alpha):
     denom = (cos_theta ** 2 * (alpha_sq - 1) + 1) ** 2
     return alpha_sq / (np.pi * denom)
 
-def energy_ratio(theta_k, alpha, integrand=GGX):
+def GGX_integrand(theta, alpha):
+    return GGX(theta, alpha) * np.sin(theta) * np.cos(theta)
+
+def energy_ratio(theta_k, alpha, integrand=GGX_integrand):
     """
     Calculate the energy ratio of the GGX NDF function within the level-set defined by theta_k.
     """
@@ -44,7 +47,7 @@ def energy_ratio(theta_k, alpha, integrand=GGX):
     denom, _ = quad(integrand, 0, np.pi / 2, args=(alpha,))
     return num / denom
 
-def find_theta_k(alpha, target_ratio=0.95, integrand=GGX):
+def find_theta_k(alpha, target_ratio=0.95, integrand=GGX_integrand):
     """
     Find the theta_k value for a given alpha and target energy ratio.
     """
@@ -67,7 +70,7 @@ class LobeLUT:
         self.alpha = np.array(alpha, dtype=np.float32)
 
         integrand_map = {
-            "GGX": GGX,
+            "GGX": GGX_integrand,
         }
         if integrand_type not in integrand_map:
             raise ValueError(f"Unsupported integrand type: {integrand_type}. Supported types: {list(integrand_map.keys())}")
@@ -78,7 +81,8 @@ class LobeLUT:
         for i, a in enumerate(alpha):
             if a < last_alpha:
                 raise ValueError("Alpha values must be in non-decreasing order.")
-            self.lut[i] = find_theta_k(a, cone_threshold, integrand=integrand_map[integrand_type])
+            self.lut[i] = np.tan(find_theta_k(a, cone_threshold, integrand=integrand_map[integrand_type]))
+            # self.lut[i] = find_theta_k(a, cone_threshold, integrand=integrand_map[integrand_type])
             last_alpha = a
 
         self.alpha = torch.tensor(self.alpha, dtype=torch.float32, device=device)
@@ -96,8 +100,8 @@ class LobeLUT:
         alpha = torch.clamp(alpha, min=self.alpha[0], max=self.alpha[-1])
 
         # Lookup the indices for interpolation
-        idx = torch.searchsorted(self.lut, alpha, right=True) - 1
-        idx = torch.clamp(idx, min=0, max=self.lut.numel() - 2)
+        idx = torch.searchsorted(self.alpha, alpha, right=True) - 1
+        idx = torch.clamp(idx, min=0, max=self.alpha.numel() - 2)
 
         # Linear interpolation
         alpha0 = self.alpha[idx]
@@ -124,10 +128,17 @@ if __name__ == "__main__":
     # print(f"Tangent value: {tan_value:.6f}")
 
     # Example usage of LobeLUT
-    alpha_values = [0, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
-    lut = LobeLUT(alpha_values, cone_threshold=0.99, integrand_type="GGX")
+    # alpha_values = [0, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
+    roughness_values = [i / 32 for i in range(32)]
+    alpha_values = [i ** 2 for i in roughness_values]
 
-    print("LUT values:", lut.lut)
+    print("Alpha values:", alpha_values)
+
+    lut = LobeLUT(alpha_values, cone_threshold=0.9, integrand_type="GGX")
+
+    print("LUT values:", list(lut.lut[i].item() for i in range(len(lut.alpha))))
+
+    print("Alpha vs LUT:", list(zip(alpha_values, list(lut.lut[i].item() for i in range(len(lut.alpha))))))
 
     test_alpha = torch.tensor([[0.001], [0.005], [0.01], [0.02], [0.1]], dtype=torch.float32, device="cuda")
     tan_values = lut(test_alpha)

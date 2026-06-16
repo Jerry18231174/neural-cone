@@ -4,13 +4,17 @@ import json
 import argparse
 from tqdm import tqdm
 import ffmpeg
+import glfw
 
 # Computational
 import numpy as np
 import torch
 
 # Custom
+from src.denoise.denoiser_wrap import *
+from src.denoise.simple_denoise.filter import FilterTasks
 from src.viewer.camera import FPSCamera, MovingCamera
+from src.viewer.ui import UI
 from render import load_render_vars
 
 # Mitsuba
@@ -45,16 +49,45 @@ def render_video(render_vars: dict, script: dict, args: argparse.Namespace) -> t
     
     # Load moving camera
     cameras = []
-    for camera_path in script["cameras"]:
+    for camera_name in os.listdir(os.path.join("out", args.scene, "video_poses")):
+        if not camera_name.endswith(".npz"):
+            continue
+        camera_path = os.path.join("out", args.scene, "video_poses", camera_name)
         with np.load(camera_path, allow_pickle=True) as data:
             extrinsics = data["extrinsics"]
             intrinsics = data["intrinsics"].item()
         cameras.append(FPSCamera(intrinsics, extrinsics, speed=1))
     cameras = MovingCamera(cameras)
-    
+
+    # Load denoiser
+    if script["denoise"] == "Oidn":
+        camera = render_vars["camera"]
+        ui = UI(camera.width, camera.height, camera, bbox=scene.bbox())
+        oidn_wrap = DenoiserWrap(scene=scene, ui=ui, type=5)
+        oidn_wrap.type = 0  # DOIDN
+
+    elif script["denoise"] == "FXAA":
+        # opengl init
+        if not glfw.init():
+            print("Failed to initialize GLFW")
+            exit()
+        glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 4)
+        glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 6)
+        glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+        glfw.window_hint(glfw.VISIBLE, False)  # headless
+        window = glfw.create_window(1, 1, "Off-Screen", None, None)
+        if not window:
+            print("Failed to create window")
+            glfw.terminate()
+            exit()
+        glfw.make_context_current(window)
+
+        camera = render_vars["camera"]
+        fxaa_denoiser = FilterTasks(None, scene, camera.width, camera.height, [camera.width, camera.height])
+
     # Render
     cache_format = os.path.join("out", "video_cache", "{:02d}{:04d}.png")
-    for section in range(len(script["cameras"])):
+    for section in range(len(cameras.cameras)):
         for frame in tqdm(range(duration * fps)):
             cache_path = cache_format.format(section, frame)
             # Skip if already rendered
@@ -69,10 +102,21 @@ def render_video(render_vars: dict, script: dict, args: argparse.Namespace) -> t
             params.update()
 
             # Render img
-            seed = np.random.randint(0, 1000000)
-            img = mi.render(scene, integrator=integrator, seed=seed, spp=spp).torch()
+            seed = np.random.randint(0, 100000000)
+            img = mi.render(scene, integrator=integrator, seed=seed, spp=spp)
             dr.sync_device()
             torch.cuda.synchronize()
+
+            # Post-process
+            if script["denoise"] == "Oidn":
+                img = oidn_wrap.denoise(img)
+            elif script["denoise"] == "FXAA":
+                img_tensor: torch.Tensor = img.torch().cuda()
+                # LHS with FXAA
+                torch.cuda.synchronize()
+                dr.sync_device()
+                img = fxaa_denoiser.fetch_denoised_result_headless(img_tensor, True)
+            
             mi.util.write_bitmap(cache_path, img)
             # print("Image saved to", output_path)
     
@@ -92,10 +136,11 @@ def parse_args():
     Parse command line arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--script", type=str, default="visualize")
+    parser.add_argument("-S", "--script", type=str, default="ncr")
     parser.add_argument("-c", "--config", type=str, default="ncr")
     parser.add_argument("-s", "--scene", type=str, default="veach-ajar")
-    parser.add_argument("-m", "--model_ckpt", type=str, default="20000")
+    parser.add_argument("-m", "--model_ckpt", type=str, default=None)
+    parser.add_argument("-H", "--half_precision", type=bool, default=False)
     return parser.parse_args()
 
 
@@ -108,7 +153,7 @@ if __name__ == "__main__":
         config = json.load(f)
     
     # Load video script
-    with open(os.path.join("configs", args.script + ".json"), "r") as f:
+    with open(os.path.join("configs", "video", args.script + ".json"), "r") as f:
         script = json.load(f)
     
     # Render

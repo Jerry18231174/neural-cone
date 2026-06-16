@@ -28,7 +28,7 @@ def check_cuda_error(cres: cudart.cudaError_t):
 
 class UI:
 
-    def __init__(self, width, height, camera, name="Render"):
+    def __init__(self, width, height, camera, name="Render", bbox=None):
         self.gpu = True  # TODO
         self.width = width
         self.height = height
@@ -42,10 +42,18 @@ class UI:
         self.current = time.time()
         self.duration = 0
         self.frames = 0
+        self.frame_rate = 1.0
 
         self.use_tonemapping = True
         self.exposure = 1.0
         self.function_wrap: FunctionWrap = None
+
+        self.speed = 1.0
+        if bbox is not None:
+            scale = bbox.max - bbox.min
+            self.scale = max(scale[0], scale[1], scale[2])
+        else:
+            self.scale = 1.0
 
         # initialize glfw
         if not glfw.init():
@@ -193,33 +201,36 @@ class UI:
         if glfw.get_key(self.window, glfw.KEY_ESCAPE) == glfw.PRESS:
             glfw.set_window_should_close(self.window, True)
 
+        move_speed = self.frame_rate * self.speed * self.scale
+        rotate_speed = self.frame_rate * self.speed * 10
+
         # Camera controls
         if glfw.get_key(self.window, glfw.KEY_W) == glfw.PRESS:
-            self.camera.move(0, 1)
+            self.camera.move(0, move_speed)
         if glfw.get_key(self.window, glfw.KEY_S) == glfw.PRESS:
-            self.camera.move(0, -1)
+            self.camera.move(0, -move_speed)
         if glfw.get_key(self.window, glfw.KEY_A) == glfw.PRESS:
-            self.camera.move(2, 1)
+            self.camera.move(2, move_speed)
         if glfw.get_key(self.window, glfw.KEY_D) == glfw.PRESS:
-            self.camera.move(2, -1)
+            self.camera.move(2, -move_speed)
         if glfw.get_key(self.window, glfw.KEY_SPACE) == glfw.PRESS:
-            self.camera.move(1, 1)
+            self.camera.move(1, move_speed)
         if glfw.get_key(self.window, glfw.KEY_LEFT_CONTROL) == glfw.PRESS:
-            self.camera.move(1, -1)
+            self.camera.move(1, -move_speed)
 
         if glfw.get_key(self.window, glfw.KEY_LEFT) == glfw.PRESS:
-            self.camera.rotate(-1, 0)
+            self.camera.rotate(-rotate_speed, 0)
         if glfw.get_key(self.window, glfw.KEY_RIGHT) == glfw.PRESS:
-            self.camera.rotate(1, 0)
+            self.camera.rotate(rotate_speed, 0)
         if glfw.get_key(self.window, glfw.KEY_UP) == glfw.PRESS:
-            self.camera.rotate(0, 1)
+            self.camera.rotate(0, rotate_speed)
         if glfw.get_key(self.window, glfw.KEY_DOWN) == glfw.PRESS:
-            self.camera.rotate(0, -1)
-        
+            self.camera.rotate(0, -rotate_speed)
+
         if glfw.get_key(self.window, glfw.KEY_O) == glfw.PRESS:
-            self.camera.zoom(10)
+            self.camera.zoom(rotate_speed * 10)
         if glfw.get_key(self.window, glfw.KEY_I) == glfw.PRESS:
-            self.camera.zoom(-10)
+            self.camera.zoom(-rotate_speed * 10)
 
         if glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS:
             xpos, ypos = glfw.get_cursor_pos(self.window)
@@ -227,7 +238,7 @@ class UI:
                 self.first_mouse = False
                 self.prev_x = xpos
                 self.prev_y = ypos
-            speed = 0.04
+            speed = 0.04 * rotate_speed
             xoffset = (xpos - self.prev_x) * speed
             yoffset = (ypos - self.prev_y) * speed
             self.camera.rotate(xoffset, yoffset)
@@ -243,9 +254,9 @@ class UI:
     def begin_frame(self):
 
         t = time.time()
-        fps = t - self.current
-        if (fps != 0):
-            fps = 1.0 / fps
+        self.frame_rate = t - self.current
+        if (self.frame_rate != 0):
+            fps = 1.0 / self.frame_rate
         self.duration += t - self.current
         self.current = t
 

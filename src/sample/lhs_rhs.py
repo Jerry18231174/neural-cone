@@ -128,7 +128,7 @@ def first_smooth(
                        ~mi.has_flag(bsdf.flags(), mi.BSDFFlags.Smooth)
             
             mask_out = bsdf.eval_null_transmission(si)
-            mask_out = (mask_out.x > 0) | (mask_out.y > 0) | (mask_out.z > 0)
+            mask_out = (mask_out.x > 0.999) | (mask_out.y > 0.999) | (mask_out.z > 0.999)
 
             active &= si.is_valid() & (spec_only | mask_out) & (depth < max_depth)
 
@@ -334,10 +334,10 @@ class LHSRHS:
         # Sampling process
         if si_lhs is not None:
             self.si_lhs = si_lhs
-            self.si_rhs = self.get_rhs_from_lhs(si_lhs)
+            self.get_rhs_from_lhs(si_lhs)
         else:
             self.sample_lhs(seed, pose=pose)
-        # self.get_wr_itsc()
+        
         self.sample_bsdf_rhs(seed)
         self.sample_emit_rhs(seed)
         self.eval_pdf()
@@ -346,50 +346,22 @@ class LHSRHS:
         bsdf_color: torch.Tensor,
         sub_emit_color: torch.Tensor = None
     ):
-        t0 = time.time()
         # LHS emitter mask
-        emitter_mask = self._emission > 1e-6
-        t1 = time.time()
+        emission = self._emission.torch()
+        emitter_mask = emission > 1e-6
 
         # Render LHS color given BSDF & emitter sampling RHS
-        bsdf_thp = self._bsdf_thp.reshape(-1, self.dirs_per_point, 3)
-        bsdf_em = self._bsdf_em.reshape(-1, self.dirs_per_point, 3)
-        bsdf_color = bsdf_color.reshape(-1, self.dirs_per_point, 3)
-        bsdf_color = torch.nan_to_num(
-            bsdf_color * bsdf_thp + bsdf_em,
-            nan=0.0, posinf=0.0, neginf=0.0
-        )
-        t2 = time.time()
-
-        bsdf_weight = self._bsdf_weight.reshape(-1, self.dirs_per_point, 3)
-        mis_bsdf_weight = self._mis_bsdf.reshape(-1, self.dirs_per_point, 1)
-        L_o_d_b = torch.nan_to_num(bsdf_color * bsdf_weight * mis_bsdf_weight, nan=0.0, posinf=0.0, neginf=0.0)
-        t3 = time.time()
-
-        f_d_e = self._f_d_e.reshape(-1, self.dirs_per_point, 3)
-        emit_weight = self._emit_weight.reshape(-1, self.dirs_per_point, 3)
-        mis_emit_weight = self._mis_emit.reshape(-1, self.dirs_per_point, 1)
-        L_o_d_e = torch.nan_to_num(emit_weight * f_d_e * mis_emit_weight, nan=0.0, posinf=0.0, neginf=0.0)
-        t4 = time.time()
+        bsdf_color = mi.Color3f(bsdf_color.reshape(-1, 3))
+        bsdf_color = bsdf_color * self._bsdf_thp + self._bsdf_em
+        L_o_d_b = bsdf_color * self._bsdf_weight * self._mis_bsdf
+        L_o_d_e = self._emit_weight * self._f_d_e * self._mis_emit
 
         rhs_color = L_o_d_b + L_o_d_e
-        rhs_thp = self._rhs_thp.reshape(-1, self.dirs_per_point, 3)
-        rhs_em = self._rhs_em.reshape(-1, self.dirs_per_point, 3)
-        rhs_color = rhs_color * rhs_thp + rhs_em
+        rhs_color = rhs_color * self._rhs_thp + self._rhs_em
 
-        out_color = torch.mean(rhs_color, dim=1)
-        dr.sync_device()
+        out_color = torch.mean(rhs_color.torch().reshape(-1, self.dirs_per_point, 3), dim=1)
+        out_color = torch.where(emitter_mask, emission, out_color)
 
-        out_color = torch.where(emitter_mask, self._emission, out_color)
-        t5 = time.time()
-
-        # print("##### Rendering time #####")
-        # print("emission:", t1 - t0)
-        # print("bsdf_emission:", t2 - t1)
-        # print("bsdf_color:", t3 - t2)
-        # print("emit_color:", t4 - t3)
-        # print("out_color:", t5 - t4)
-        
         return out_color
 
     def sample_lhs(self, seed : int = 0, pose : dict = None):
@@ -424,7 +396,7 @@ class LHSRHS:
             si = self.sample_lhs_pose(pose, si_lhs=si, seed=seed)
 
         self.si_lhs = si
-        self.si_rhs = self.get_rhs_from_lhs(si)
+        self.get_rhs_from_lhs(si)
     
     def sample_lhs_pose(self,
         pose: dict, si_lhs: mi.SurfaceInteraction3f = None,
@@ -492,6 +464,8 @@ class LHSRHS:
 
             final_si[active & recorded] = si
             active &= ~recorded
+        
+        final_si.wi = mi.warp.square_to_cosine_hemisphere(sampler.next_2d())
 
         dr.eval(final_si)
 
@@ -516,10 +490,10 @@ class LHSRHS:
 
         self.si_bsdf = si_bsdf
         self.si_bsdf_first = si_bsdf_first
-        self._bsdf_thp = throughput.torch()
-        self._bsdf_em = emission.torch()
+        self._bsdf_thp = throughput
+        self._bsdf_em = emission
         self._bsdf_sample = bsdf_sample
-        self._bsdf_weight = bsdf_weight.torch()
+        self._bsdf_weight = bsdf_weight
         self._p_b_d_b = bsdf_sample.pdf
 
     def sample_emit_rhs(self, seed : int = 0, sub_emit : bool = False):
@@ -537,12 +511,12 @@ class LHSRHS:
             # wo = self.si_rhs.to_local(ds.d)
 
         self._emit_sample = ds
-        self._emit_weight = em_weight.torch()
+        self._emit_weight = em_weight
         self._p_e_d_e = ds.pdf
 
     def eval_pdf(self):
         # Evaluate self emission
-        self._emission = self.si_lhs.emitter(self.scene).eval(self.si_lhs).torch()
+        self._emission = self.si_lhs.emitter(self.scene).eval(self.si_lhs)
 
         ctx = mi.BSDFContext()
 
@@ -563,17 +537,17 @@ class LHSRHS:
         
         self._p_b_d_e = bsdf_pdf
         self._p_e_d_b = em_pdf
-        self._f_d_e = bsdf_val.torch()
+        self._f_d_e = bsdf_val
 
         # Evaluate MIS weights
         assert self._p_b_d_b is not None
         assert self._p_e_d_e is not None
 
         self._mis_bsdf = dr.detach(dr.select(self._p_b_d_b > 0,
-            self._p_b_d_b / (self._p_b_d_b + self._p_e_d_b), 0)).torch()
+            self._p_b_d_b / (self._p_b_d_b + self._p_e_d_b), 0))
         self._mis_emit = dr.select(self._emit_sample.delta, 1.0,
             dr.detach(dr.select(self._p_e_d_e > 0,
-            self._p_e_d_e / (self._p_e_d_e + self._p_b_d_e), 0))).torch()
+            self._p_e_d_e / (self._p_e_d_e + self._p_b_d_e), 0)))
     
     def get_rhs_from_lhs(self, si_lhs: mi.SurfaceInteraction3f, seed : int = 0):
         # Set sampler
@@ -583,15 +557,13 @@ class LHSRHS:
         # Sample incident directions, trace intersection
         indices = dr.arange(mi.Int, 0, self.point_num)
         rhs_indices = dr.repeat(indices, self.dirs_per_point)
-        si_rhs = dr.gather(mi.SurfaceInteraction3f, si_lhs, rhs_indices)
+        self.si_rhs = dr.gather(mi.SurfaceInteraction3f, si_lhs, rhs_indices)
 
         # Intersect ray
-        si_rhs, throughput, emission, _ = first_smooth(self.scene, r_sampler, si_rhs, active=True)
+        self.si_rhs, throughput, emission, _ = first_smooth(self.scene, r_sampler, self.si_rhs, active=True)
 
-        self._rhs_thp = throughput.torch()
-        self._rhs_em = emission.torch()
-
-        return si_rhs
+        self._rhs_thp = throughput
+        self._rhs_em = emission
     
     def get_wr_itsc(self):
         # Trace secondary ray in the reflection direction, get intersection
@@ -601,21 +573,6 @@ class LHSRHS:
 
         ray = mi.Ray3f(self.si_lhs.p + wr * 1e-5, wr)
         self.si_wr = self.scene.ray_intersect(ray)
-    
-    def to(self, device: str = "cuda", dtype=torch.float32):
-        """
-        Move all tensor attributes to the specified device
-        """
-        self._emission = self._emission.to(device=device, dtype=dtype)
-        self._bsdf_thp = self._bsdf_thp.to(device=device, dtype=dtype)
-        self._bsdf_em = self._bsdf_em.to(device=device, dtype=dtype)
-        self._bsdf_weight = self._bsdf_weight.to(device=device, dtype=dtype)
-        self._mis_bsdf = self._mis_bsdf.to(device=device, dtype=dtype)
-        self._f_d_e = self._f_d_e.to(device=device, dtype=dtype)
-        self._emit_weight = self._emit_weight.to(device=device, dtype=dtype)
-        self._mis_emit = self._mis_emit.to(device=device, dtype=dtype)
-        self._rhs_thp = self._rhs_thp.to(device=device, dtype=dtype)
-        self._rhs_em = self._rhs_em.to(device=device, dtype=dtype)
     
 
 def render_pt(scene: mi.Scene, sampler: mi.Sampler, si: mi.SurfaceInteraction3f):

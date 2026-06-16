@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -10,10 +11,15 @@ check_user_settings()
 import shutil
 
 # gen *.pyd at . location
-cmd = "pip install {}".format(CURRENT_DIR)
-# cmd = "pip install {}".format(CURRENT_DIR)
-
-os.system(cmd)
+cmd = [
+    sys.executable,
+    "-m",
+    "pip",
+    "install",
+    "--no-build-isolation",
+    CURRENT_DIR,
+]
+subprocess.check_call(cmd)
 
 # from simple_denoise.prepare_shaders import generate_OpenGL_shaders
 # generate_OpenGL_shaders()

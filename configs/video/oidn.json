@@ -1,0 +1,8 @@
+{
+    "name": "Oidn",
+    "fps": 30,
+    "duration": 4,
+    "spp": 4,
+    "render_mode": "PT",
+    "denoise": "Oidn"
+}

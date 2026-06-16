@@ -11,10 +11,11 @@ import torch
 
 # Custom
 from src.util.progress_bar import find_best_ckpt
-from src.model.radiosity import NeuralRadiosity, NeuralConeRadiosity, get_model_bbox
+from src.model.radiosity import *
 from src.integrator.neural import RadiosityIntegrator
 from src.integrator.path import *
 from src.integrator.g_buffer import *
+from src.integrator.ao import *
 from src.viewer.camera import FPSCamera
 from src.viewer.ui import UI
 
@@ -35,6 +36,16 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     scene = mi.load_file(os.path.join("scenes", args.scene, "scene.xml"))
     params = mi.traverse(scene)
 
+    # Get camera parameters
+    width, height = params['PerspectiveCamera.film.size'].numpy()
+    x_fov = params['PerspectiveCamera.x_fov'].numpy()[0]
+    extrinsic = params['PerspectiveCamera.to_world'].matrix.numpy()[0]
+    camera = FPSCamera({
+        "width": width,
+        "height": height,
+        "x_fov": x_fov,
+    }, extrinsic, 0.2)
+
     # Load model
     ckpt_dir = os.path.join("out", args.scene, "checkpoints", config["model"]["name"])
     if args.model_ckpt is not None:
@@ -44,10 +55,17 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     else:
         ckpt_path, _ = find_best_ckpt(ckpt_dir, metric="loss")
 
-    if config["model"]["name"] == "NR":
+    if config["model"]["name"][:2] == "NR":
         model = NeuralRadiosity.load_from_checkpoint(
             ckpt_path,
             config=config["model"]["ray"],
+            pipeline_config=config,
+            scene=scene
+        )
+    elif config["model"]["name"][:4] == "NCR2":
+        model = NeuralConeRadiosity2.load_from_checkpoint(
+            ckpt_path,
+            config=config["model"],
             pipeline_config=config,
             scene=scene
         )
@@ -69,6 +87,8 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     nr_integrator = RadiosityIntegrator(
         model=model,
         render_mode="LHS",
+        width=width,
+        height=height,
         precision=torch.float16 if args.half_precision else torch.float32,
     )
     path_integrator = mi.load_dict({
@@ -84,15 +104,9 @@ def load_render_vars(config: dict, args: argparse.Namespace):
     normal_integrator = mi.load_dict({
         "type": "normal"
     })
-
-    width, height = params['PerspectiveCamera.film.size'].numpy()
-    x_fov = params['PerspectiveCamera.x_fov'].numpy()[0]
-    extrinsic = params['PerspectiveCamera.to_world'].matrix.numpy()[0]
-    camera = FPSCamera({
-        "width": width,
-        "height": height,
-        "x_fov": x_fov,
-    }, extrinsic, 0.2)
+    ao_integrator = mi.load_dict({
+        "type": "ao"
+    })
 
     return {
         "scene": scene,
@@ -102,6 +116,7 @@ def load_render_vars(config: dict, args: argparse.Namespace):
             "depth": depth_integrator,
             "albedo": albedo_integrator,
             "normal": normal_integrator,
+            "ao": ao_integrator,
         },
         "camera": camera,
     }
@@ -114,16 +129,17 @@ def render(config: dict, args: argparse.Namespace):
     render_vars = load_render_vars(config, args)
     scene: mi.Scene = render_vars["scene"]
     params = mi.traverse(scene)
-    nr_integrator = render_vars["integrators"][args.config]
+    nr_integrator: RadiosityIntegrator = render_vars["integrators"][args.config]
     path_integrator = render_vars["integrators"]["path"]
     depth_integrator = render_vars["integrators"]["depth"]
     albedo_integrator = render_vars["integrators"]["albedo"]
     normal_integrator = render_vars["integrators"]["normal"]
+    ao_integrator = render_vars["integrators"]["ao"]
     camera: FPSCamera = render_vars["camera"]
     width, height = camera.width, camera.height
 
     # Initialize UI
-    ui = UI(width, height, camera)
+    ui = UI(width, height, camera, bbox=scene.bbox())
 
     # UI variables
     int_type = 0
@@ -167,8 +183,8 @@ def render(config: dict, args: argparse.Namespace):
             update_frame = update_frame or vc
 
             _, int_type = imgui.combo("Integrator", int_type, [
-                                    "Path", "LHS", "RHS", "Depth", "Albedo", "Normal"])
-            _, slider_spp = imgui.slider_int("SPP", slider_spp, 1, 16)
+                                    "Path", "LHS", "RHS", "Deferred", "Depth", "Albedo", "Normal", "AO"])
+            _, slider_spp = imgui.slider_int("SPP", slider_spp, 1, 32)
 
             if int_type == 0:
                 integrator = path_integrator
@@ -183,21 +199,28 @@ def render(config: dict, args: argparse.Namespace):
                 nr_integrator.spp = slider_spp
                 spp = 1
             elif int_type == 3:
+                integrator = nr_integrator
+                nr_integrator.render_mode = "Deferred"
+                nr_integrator.spp = slider_spp
+                spp = 1
+            elif int_type == 4:
                 integrator = depth_integrator
                 if use_antialiasing:
                     depth_integrator.ray_type = "secondary"
                 else:
                     depth_integrator.ray_type = "primary"
                 spp = slider_spp
-            elif int_type == 4:
+            elif int_type == 5:
                 integrator = albedo_integrator
                 spp = slider_spp
-            elif int_type == 5:
+            elif int_type == 6:
                 integrator = normal_integrator
                 spp = slider_spp
+            elif int_type == 7:
+                integrator = ao_integrator
+                spp = slider_spp
 
-            _, use_antialiasing = imgui.checkbox(
-                "Anti-aliasing", use_antialiasing)
+            _, use_antialiasing = imgui.checkbox("Anti-aliasing", use_antialiasing)
             _, exposure = imgui.slider_float("Exposure", exposure, 0.1, 5)
             _, save_img = imgui.checkbox("Save image", save_img)
 
@@ -211,6 +234,8 @@ def render(config: dict, args: argparse.Namespace):
                 if vc:
                     empty_cache()
                 update_frame = update_frame or vc
+            
+            nr_integrator.use_filter = use_antialiasing
 
             imgui.tree_pop()
         
@@ -260,7 +285,7 @@ def render(config: dict, args: argparse.Namespace):
         if save_img:
             dr.sync_device()
             torch.cuda.synchronize()
-            out_dir = os.path.join("out", args.scene, args.config + ".exr")
+            out_dir = os.path.join("out", args.scene, args.config + ("-fxaa" if use_antialiasing else "") + ".exr")
             mi.util.write_bitmap(out_dir, img)
             print("Image saved to", out_dir)
             save_img = False

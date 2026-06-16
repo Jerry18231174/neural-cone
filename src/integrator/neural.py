@@ -1,7 +1,9 @@
 import torch
+import time
 
 from src.model.radiosity import NeuralRadiosity
-from src.sample.lhs_rhs import first_smooth, first_smooth_dnr
+from src.sample.lhs_rhs import first_smooth, first_smooth_dnr, extract_input
+from src.module.ncr_filter import NCRFilter
 
 import drjit as dr
 import mitsuba as mi
@@ -13,7 +15,10 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         self,
         model: NeuralRadiosity,
         render_mode: str = "LHS",
+        width: int = 800,
+        height: int = 600,
         spp: int = 1,
+        use_filter: bool = True,
         precision=torch.float32
     ) -> None:
         props = mi.Properties()
@@ -25,7 +30,17 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         self.model = model
         self.render_mode = render_mode
         self.spp = spp
+        self.max_spp = 16
         self.precision = precision
+        self.width = width
+        self.height = height
+        self.use_filter = use_filter
+        self.ncr_filter = NCRFilter(
+            width, height, kernel_size = 9,
+            fxaa=True, bilateral=True,
+            bilateral_sigma_spatial=4, bilateral_sigma_range=0.005, bilateral_sigma_color=2.0,
+            roughness_threshold=0.5, use_kernel=True
+        )
 
     def sample(
         self,
@@ -40,15 +55,42 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         si, throughput, emission, _ = first_smooth(scene, sampler, ray, active)
 
         with torch.no_grad():
+            dr.eval(si)
+            pos, normal, direction, albedo, roughness, active_side = extract_input(si)
         
             if self.render_mode == "LHS":
-                color = self.model.render_lhs(si, scene, precision=self.precision)
+                gbuf = (pos, normal, direction, albedo, roughness, active_side)
+                color = self.model.render_lhs(si, gbuf, precision=self.precision)
             elif self.render_mode == "RHS":
-                color = self.model.render_rhs(si, scene, spp=self.spp, precision=self.precision)
+                # Unfold spp into multiple iterations to avoid OOM
+                point_num = dr.width(si.p)
+                color = torch.zeros((point_num, 3), device="cuda")
+                render_iter = (self.spp + self.max_spp - 1) // self.max_spp
+                for i in range(render_iter):
+                    iter_spp = min(self.max_spp, self.spp - i * self.max_spp)
+                    iter_color = self.model.render_rhs(si, spp=iter_spp, precision=self.precision)
+                    color += iter_color * (iter_spp / self.spp)
+            elif self.render_mode == "Deferred":
+                color = self.model.render_deferred(si, spp=self.spp, precision=self.precision)
             elif self.render_mode == "visualize":
                 color = self.model.visualize(si, scene, radius_selection=self.spp, precision=self.precision)
             else:
                 raise ValueError("Invalid render mode:", self.render_mode)
+        
+        if self.use_filter:
+            color = color.reshape(self.height, self.width, 3).contiguous()
+            pos = pos.reshape(self.height, self.width, 3).contiguous()
+            normal = normal.reshape(self.height, self.width, 3).contiguous()
+            albedo = albedo.reshape(self.height, self.width, 3).contiguous()
+            roughness = roughness.reshape(self.height, self.width, 1).contiguous()
+
+            color = self.ncr_filter.apply(
+                color,
+                position=pos,
+                normal=normal,
+                albedo=albedo,
+                roughness=roughness,
+            ).reshape(-1, 3)
 
         result = mi.Color3f(color.to(torch.float32)) * throughput + emission
         
@@ -57,4 +99,3 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
         # torch.cuda.empty_cache()
         
         return result, si.is_valid(), []
-

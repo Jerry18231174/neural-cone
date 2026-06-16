@@ -1,0 +1,8 @@
+{
+    "name": "NCR",
+    "fps": 30,
+    "duration": 4,
+    "spp": 1,
+    "render_mode": "LHS",
+    "denoise": "FXAA"
+}

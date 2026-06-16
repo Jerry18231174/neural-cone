@@ -1,0 +1,51 @@
+{
+    "train": {
+        "epochs": 20000,
+        "save_every": 500,
+        "learning_rate": 0.001,
+        "tone_loss_weight": 0.01
+    },
+    "render": {
+    },
+    "model": {
+        "name": "NCR",
+        "cone_threshold": 0.99,
+        "n_glossy_rhs": 128,
+        "n_glossy_max_samples": 4,
+        "n_kmeans_iter": 10,
+        "ray": {
+            "name": "HashGrid",
+            "n_levels": 6,
+            "n_features_per_level": 8,
+            "log2_hashmap_size": 21,
+            "base_resolution": 32,
+            "per_level_scale": 2.0,
+            "interpolation": "Linear",
+            "level_reduce": "Concat",
+            "n_hidden_dims": 128,
+            "n_hidden_layers": 3,
+            "output_activation": "Squareplus",
+            "use_tcnn": true
+        },
+        "cone": {
+            "name": "HashGrid",
+            "n_levels": 8,
+            "n_features_per_level": 8,
+            "log2_hashmap_size": 21,
+            "base_resolution": 8,
+            "per_level_scale": 2.0,
+            "interpolation": "Linear",
+            "level_reduce": "Interp",
+            "n_hidden_dims": 64,
+            "n_hidden_layers": 2,
+            "output_activation": "Squareplus",
+            "sample_ratio": 2,
+            "use_tcnn": true
+        }
+    },
+    "sample": {
+        "n_points": 65536,
+        "n_dirs_per_point": 32,
+        "from_poses": true
+    }
+}
