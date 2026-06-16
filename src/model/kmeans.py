@@ -23,7 +23,7 @@ class KMeans:
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.cuda_kernel = load(
-            name="kmeans_cuda",
+            name="kmeans_cuda_" + str(self.n_clusters),
             sources=[
                 os.path.join(current_dir, "kmeans_cuda", "kmeans1d_bindings.cpp"),
                 os.path.join(current_dir, "kmeans_cuda", "kmeans1d_cuda.cu")],
