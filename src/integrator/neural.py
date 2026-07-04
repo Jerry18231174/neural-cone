@@ -71,7 +71,14 @@ class RadiosityIntegrator(mi.SamplingIntegrator):
                     iter_color = self.model.render_rhs(si, spp=iter_spp, precision=self.precision)
                     color += iter_color * (iter_spp / self.spp)
             elif self.render_mode == "Deferred":
-                color = self.model.render_deferred(si, spp=self.spp, precision=self.precision)
+                # Unfold spp into multiple iterations to avoid OOM
+                point_num = dr.width(si.p)
+                color = torch.zeros((point_num, 3), device="cuda")
+                render_iter = (self.spp + self.max_spp - 1) // self.max_spp
+                for i in range(render_iter):
+                    iter_spp = min(self.max_spp, self.spp - i * self.max_spp)
+                    iter_color = self.model.render_deferred(si, spp=iter_spp, precision=self.precision)
+                    color += iter_color * (iter_spp / self.spp)
             elif self.render_mode == "visualize":
                 color = self.model.visualize(si, scene, radius_selection=self.spp, precision=self.precision)
             else:

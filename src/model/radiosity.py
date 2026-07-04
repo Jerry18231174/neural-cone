@@ -185,6 +185,7 @@ class RadiosityPipeline(L.LightningModule):
     
     def render_deferred(self, si_lhs: mi.SurfaceInteraction3f, spp: int = 1, precision=torch.float32):
         with torch.no_grad():
+            t0 = get_time()
             dr.eval(si_lhs)
             point_num = dr.width(si_lhs.p)
 
@@ -202,26 +203,43 @@ class RadiosityPipeline(L.LightningModule):
                 point_num=dr.width(glo_idx),
                 dirs_per_point=spp
             )
+            t1 = get_time()
             lhs_rhs.sample(seed=np.random.randint(0, 1000000), si_lhs=si_glo)
+            t2 = get_time()
             si_glo_rhs = lhs_rhs.si_bsdf
             dr.eval(si_glo_rhs)
             pos, normal, direction, albedo, roughness, active_side = extract_input(si_glo_rhs)
             gbuf = (pos, normal, direction, albedo, roughness, active_side)
+            t3 = get_time()
 
             rhs_color = self.query_model(si_glo_rhs, gbuf, precision=precision)
+            t4 = get_time()
 
             # Render glossy rhs color
             rhs_color = rhs_color.reshape(-1, spp, 3)
             glo_color = lhs_rhs.render(rhs_color, None)
+            t5 = get_time()
 
             pos, normal, direction, albedo, roughness, active_side = extract_input(si_diff)
             gbuf = (pos, normal, direction, albedo, roughness, active_side)
             diff_color = self.query_model(si_diff, gbuf, precision=precision)
+            t6 = get_time()
 
             glossy_mask = glossy_mask.torch().bool()
             color = torch.zeros((point_num, 3), device="cuda", dtype=precision)
             color[glossy_mask] = glo_color
             color[~glossy_mask] = diff_color
+            t7 = get_time()
+
+            # print("######################")
+            # print("Preproc:\t", t1-t0)
+            # print("Sample:\t\t", t2-t1)
+            # print("Extract:\t", t3-t2)
+            # print("Glossy model:\t", t4-t3)
+            # print("Render:\t\t", t5-t4)
+            # print("Diffuse model:\t", t6-t5)
+            # print("Merge:\t\t", t7-t6)
+            # print("Total:\t\t", t7-t0)
 
         return color
     

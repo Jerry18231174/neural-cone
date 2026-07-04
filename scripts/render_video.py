@@ -27,19 +27,20 @@ def render_video(render_vars: dict, script: dict, args: argparse.Namespace) -> t
     # Load render variables
     scene: mi.Scene = render_vars["scene"]
     params = mi.traverse(scene)
+
+    # Check cache dir
+    cache_dir = os.path.join("out", "video_cache")
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
     
     fps = script["fps"]
     duration = script["duration"]
     spp = script["spp"]
     render_mode = script["render_mode"]
 
-    if render_mode == "LHS":
+    if render_mode in ["LHS", "RHS", "Deferred"]:
         integrator = render_vars["integrators"][args.config]
-        integrator.render_mode = "LHS"
-        spp = 1
-    elif render_mode == "RHS":
-        integrator = render_vars["integrators"][args.config]
-        integrator.render_mode = "RHS"
+        integrator.render_mode = render_mode
         integrator.spp = spp
         spp = 1
     elif render_mode == "PT":
@@ -122,13 +123,16 @@ def render_video(render_vars: dict, script: dict, args: argparse.Namespace) -> t
     
     # Convert to video
     imgs_path = os.path.join("out", "video_cache", "*.png")
-    video_path = os.path.join("out", "{}.mp4".format(script["name"]))
+    video_path = os.path.join("out", "{}-{}.mp4".format(script["name"], args.scene))
     ffmpeg.input(imgs_path, pattern_type='glob', framerate=fps).output(
         video_path,
         vcodec='libx264',
         pix_fmt='yuv420p',
     ).run()
     print("Video saved to {}".format(video_path))
+
+    # Cleanup cache
+    os.system("rm -rf {}".format(cache_dir))
 
 
 def parse_args():

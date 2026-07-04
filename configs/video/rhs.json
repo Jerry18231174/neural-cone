@@ -1,0 +1,8 @@
+{
+    "name": "NR-RHS-post",
+    "fps": 30,
+    "duration": 4,
+    "spp": 32,
+    "render_mode": "Deferred",
+    "denoise": "None"
+}
