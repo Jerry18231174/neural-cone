@@ -6,6 +6,8 @@ Official implementation of **Neural Cone Radiosity (NCR)** for interactive globa
 > *Neural Cone Radiosity for Interactive Global Illumination with Glossy Materials*<br>
 > [[arXiv]](https://arxiv.org/abs/2509.07522) &nbsp;|&nbsp; [[PDF]](https://arxiv.org/pdf/2509.07522)
 
+![Representative Image](scenes/network_250x250.png)
+
 Neural radiosity methods that rely mainly on positional encodings struggle with high-frequency, view-dependent radiance, especially on glossy surfaces. NCR extends the neural radiosity framework with **reflectance-aware ray cone encoding**: a glossy BSDF lobe is treated as a ray cone, whose projected footprint is approximated by clustering reflected hits and querying a pre-filtered multi-resolution hash grid. A dual-branch network (diffuse + glossy) with a lightweight modulation MLP then predicts outgoing radiance across a wide range of glossiness, from highly polished surfaces to low-sheen finishes.
 
 This repository provides training, interactive viewing, and offline rendering on top of a customized [Mitsuba 3](https://mitsuba-renderer.org/) (v3.5.2) backend.
