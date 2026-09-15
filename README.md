@@ -123,6 +123,10 @@ If you use this code, please cite:
 }
 ```
 
+## License
+
+This project is released under the [MIT License](LICENSE). Test scenes under `scenes/` retain their original licenses (typically CC0 from the Bitterli resources).
+
 ## Acknowledgements
 
 This implementation builds on [Mitsuba 3](https://mitsuba-renderer.org/), [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn), and the neural radiosity formulation of Hadadan et al. Test scenes are adapted from the [Bitterli rendering resources](https://benedikt-bitterli.me/resources/).
